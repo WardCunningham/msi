@@ -1,3 +1,4 @@
+# encoding: ISO-8859-1
 require 'rubygems'
 require 'json'
 
@@ -37,6 +38,18 @@ def odd n
   n&1 == 1
 end
 
+def read filename
+  lines = []
+  File.open(filename, 'r') do |file|
+    line = file.readline
+    while odd line.count('"') do
+      line += file.readline
+    end
+    lines << line
+  end
+  lines.join ''
+end
+
 # detect lines with odd number of quotes
 # Dir.glob('Nike*/*.json') do |filename|
 #   puts filename
@@ -45,17 +58,67 @@ end
 #   end
 
 boilerplate = paragraph "This data has been imported by script. This text should be replaced with further explainations."
+tally = Hash.new 0
+errors = 0
 
-Dir.glob('Nike/*.json') do |filename|
-  title = filename.gsub(/\.json$/,'').gsub(/Nike\//,'').gsub(/([a-z0-9])([A-Z])/,'\1 \2')
-  puts "#{filename} -- #{title}"
-  input = JSON.parse(File.read(filename))
-  output = {}
-  output['type'] = 'data'
-  output['id'] = random
-  output['columns'] = input['Columns'].reject{|col| col==""}
-  output['data'] = input['data']
-  output['text'] = title
-  page title, [output, boilerplate]
+def fix key
+  key = key.gsub(/ +$/, '')
+  key = key.gsub(/  +/, ' ')
+  key = key.gsub(/^ +/, '')
+  key = key.gsub(/\/ +/, '/')
+  key = key.gsub(/\* */, '')
+  key = key.gsub(/^SOLID WASTES$/, 'Solid Wastes')
+  return key
 end
 
+def fixall keys, hash
+  result = {}
+  keys.each do |key|
+    result[fix(key)] = hash[key]
+  end
+  return result
+end
+
+Dir.glob("try3UTF8/*.json") do |filename|
+  title = filename.gsub(/\.json$/,'').gsub(/\w+\//,'').gsub(/([a-z0-9])([A-Z])/,'\1 \2')
+  puts "\n\n#{title}"
+  begin
+    text = File.read(filename)
+    input = JSON.parse(text)
+    puts input['columns'].inspect
+    columns = input['columns'].collect{|key| fix(key)}
+    units = {}
+    columns.each do |key|
+      if key =~ / Units$/
+        units[key.gsub(/ Units$/,'')] = key
+      end
+    columns = columns.reject {|key| key =~ / Units$/}
+    end
+    
+    input['columns'].each {|key| tally[key]+=1}
+    output = {}
+    output['type'] = 'data'
+    output['id'] = random
+    output['columns'] = columns
+    output['data'] = input['data'].collect{|obj| fixall(columns, obj)}
+    output['text'] = title
+    page title, [output, boilerplate]
+  rescue Exception => e
+    errors += 1
+    puts e.message
+  end
+end
+
+def check key
+  return 'SFX' if key =~ / $/
+  return 'DBL' if key =~ /  /
+  return 'PFX' if key =~ /^ /
+  return 'BRK' if key =~ /\/ /
+  return 'AST' if key =~ /^ *\*/
+  return 'CAP' unless key =~ /[a-z]/
+end
+
+puts "\n\nTally\tColumn Name"
+tally.keys.sort.each {|key| puts "#{tally[key]} #{check key}\t'#{key}'#{check(key)? " ==> '#{fix key}'" : ''}"}
+
+puts "\n#{errors} errors"
