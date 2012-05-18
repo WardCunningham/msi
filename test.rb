@@ -62,38 +62,77 @@ class Fix < Parslet::Transform
   rule(:name => simple(:name)) { {:name => name.to_s} }
 end
 
+@functs = {}
+@sheets = {}
+@tables = {}
+@columns = {}
+@formulas = {}
+@strings = {}
+@numbers = {}
+
+@dot = []
+def quote string
+  "\"#{string.to_s.gsub(/([a-z0-9])[_ \/]?([A-Z])/,'\1\n\2')}\""
+end
+
+def eval from, expr
+  return unless expr
+  puts "--#{expr.inspect}"
+  case
+  when s=expr[:sheet]
+    # @dot << "#{quote from} -> #{quote s};"
+    @sheets[s.to_s] = 1
+  when o=expr[:op]
+    eval from, expr[:left]
+    eval from, expr[:right]
+  when f=expr[:function]
+    # @dot << "#{quote from} -> #{quote f};"
+    @functs[f.to_s] = 1
+    [expr[:args]].flatten.each {|arg| eval from, arg}
+  when t=expr[:table]
+    @dot << "#{quote from} -> #{quote expr[:column]};"
+    @dot << "#{quote expr[:column]} -> #{quote t};"
+    @columns[expr[:column].to_s] = 1
+    @tables[t.to_s]=1
+  when f=expr[:formula]
+    @dot << "#{quote from} -> #{quote f};"
+    @formulas[f.to_s] = 1
+  when s=expr[:string]
+    @strings[s.to_s] = 1
+  when n=expr[:number]
+    @numbers[n.to_s] = 1
+  else
+    puts "Can't Eval:"
+    puts JSON.pretty_generate(expr)
+  end
+end
+
 @trouble = 0
 def parse str, binding=''
   fun = Fun.new
-  puts "---------------------\n#{binding}#{str}\n---------------------"
-  # puts JSON.pretty_generate(fun.parse(str))
-  puts JSON.pretty_generate(a = Fix.new.apply(fun.parse(str)))
+  puts "---------------------\n#{binding}#{str}"
+  expr = Fix.new.apply(fun.parse(str))
+  # puts JSON.pretty_generate(expr)
+  eval binding, expr
 rescue Parslet::ParseFailed => err
   puts err, fun.root.error_tree
   @trouble += 1
 end
 
-# parse "=WaterFinishing+WaterProcessTotal*WaterFabricFactor"
-# parse "=Tier3WaterData[@Fabric]"
-# parse "=Tier3ProcessInformation[Material]"
-# parse "=Tier3WaterData[@[Scouring/Washing]]"
-# parse "=Tier3WaterData[@[Scouring/Washing]]+WaterProcessTotal*WaterFabricFactor"
-# parse "=(Tier3WaterData[@[Scouring/Washing]]+WaterProcessTotal)*WaterFabricFactor"
-# parse "=Tier3ProcessInformation[Material]=Tier3WaterData[@Material]"
-# parse "=(\"Water\"=Tier3ProcessInformation[ProcessType])"
-# parse "=Weighting!$H$2"
-# parse "=SUM(Tier3ProcessInformation[Material/Washing],Tier3ProcessInformation[Material])"
-# parse "=SUM((Tier3ProcessInformation[Material]=Tier3WaterData[@Material])*(\"Water\"=Tier3ProcessInformation[ProcessType])*(Tier3ProcessInformation[Type per Phase]))"
-# parse "=(Tier3ProcessInformation[Material]=Tier3WaterData[@Material])*(\"Water\"=Tier3ProcessInformation[ProcessType])*(Tier3ProcessInformation[Type per Phase])"
-# 
-# parse "=Tier3WaterData[@[Greige/Other]]+Tier3WaterData[@Desizing]+Tier3WaterData[@[Scouring/Washing]]+Tier3WaterData[@Bleaching]+Tier3WaterData[@Fulling]+Tier3WaterData[@Mercerization]+Tier3WaterData[@Dyeing]+Tier3WaterData[@Printing]+Tier3WaterData[@[Rinsing/Finishing]]"
-# parse "=SUM((Tier3ProcessInformation[Material]=Tier3WaterData[@Material])*(\"Water\"=Tier3ProcessInformation[ProcessType])*(Tier3ProcessInformation[Type per Phase]))"
-# parse "=IF(LOWER(Tier3WaterData[@Fabric])=\"y\",Tier3WaterData[@[Fabric Add on]],1)"
-# parse "=IF(LOWER(Tier3WaterData[@Fabric])=\"y\",Tier3WaterData[@[Fabric Add on]],1)"
-
 load("try4UTF8/Tier3Functions.json")['data'].each do |row|
   parse row['Function'],row['Function Name']
 end
 
+puts "\nsheets: #{@sheets.keys.inspect}"
+puts "\nfuncts: #{@functs.keys.inspect}"
+puts "\ntables: #{@tables.keys.inspect}"
+puts "\ncolumns: #{@columns.keys.inspect}"
+puts "\nformulas: #{@formulas.keys.inspect}"
+puts "\nstrings: #{@strings.keys.inspect}"
+puts "\nnumbers: #{@numbers.keys.inspect}"
+
+File.open('test.dot', 'w') do |f|
+  f.puts "\ndigraph nmsi {\nnode[style=filled, fillcolor=gold]\n#{@dot.join("\n")}\n}"
+end
 
 puts "\n\n#{@trouble} trouble"
