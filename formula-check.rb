@@ -57,8 +57,7 @@ end
 # end
 
 load("try4UTF8/Tier3Functions.json")['data'].each do |row|
-  
-  puts "#{row['Function Name']}\t#{row['Function'].length}" if row['Function'].length>30
+  puts "#{row['Function Name']}\t#{row['Function'].length}\n#{row['Function']}" if row['Function'].length>30
 end
 
 
