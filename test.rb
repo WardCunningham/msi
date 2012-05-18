@@ -2,6 +2,17 @@ require 'rubygems'
 require 'parslet'
 require 'json'
 
+def load filename
+  text = File.read(filename)
+  input = JSON.parse(text)
+  columns = input['columns']
+  data = input['data']
+  puts "#{filename}: #{data.length} rows x #{columns.length} columns"
+  # puts columns.inspect
+  # puts data[0].inspect
+  return input
+end
+
 class Fun < Parslet::Parser
   rule(:sp) { match('\s').repeat(1) }
   rule(:sp?) { sp.maybe }
@@ -20,12 +31,14 @@ class Fun < Parslet::Parser
   rule(:letters) { match['a-zA-Z'].repeat(1) }
   rule(:dollar) { match('$') }
   rule(:bang) { match('\!') }
+  rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(1) }
   
   rule(:num) { ((digits >> (dot >> digits.maybe).maybe) | (dot >> digits)).as(:number)}
-  rule(:name) { (match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(1)).as(:name) }
+  rule(:frml) { name.as(:formula)}
   rule(:r) { dollar >> digits.as(:absrow) | digits.as(:row) }
   rule(:c) { dollar >> letters.as(:abscol) | letters.as(:col) }
-  rule(:cell) { name >> bang >> c >> r }
+  rule(:sheet) { name.as(:sheet) }
+  rule(:cell) { (sheet >> bang).maybe >> c >> r }
   rule(:args) { expr >> (comma >> expr).repeat(0) }
   rule(:call) { name.as(:function) >> lparn >> args.as(:args) >> rparn }
   rule(:cname) { match['^\]'].repeat(1).as(:column) }
@@ -33,7 +46,7 @@ class Fun < Parslet::Parser
   rule(:ref) { name.as(:table) >> lsqr >> at.as(:current).maybe >> col >> rsqr }
   rule(:str) { match('"') >> match['^"'].repeat(0).as(:string) >> match('"') }
   rule(:paren) { (lparn >> expr >> rparn) }
-  rule(:unit) { paren | str | ref | call | cell | name | num }
+  rule(:unit) { paren | str | ref | call | cell | frml | num }
   
   rule(:prod) { unit.as(:left) >> ( multop.as(:op) >> expr.as(:right) ).maybe }
   rule(:sum) { prod.as(:left) >> ( addop.as(:op) >> expr.as(:right) ).maybe }
@@ -50,12 +63,11 @@ class Fix < Parslet::Transform
 end
 
 @trouble = 0
-def parse str
+def parse str, binding=''
   fun = Fun.new
-  puts "----------------------------------------\n#{str}\n----------------------------------------"
+  puts "---------------------\n#{binding}#{str}\n---------------------"
   # puts JSON.pretty_generate(fun.parse(str))
-  puts JSON.pretty_generate(Fix.new.apply(fun.parse(str)))
-  # puts Fix.new.apply(fun.parse(str)).inspect
+  puts JSON.pretty_generate(a = Fix.new.apply(fun.parse(str)))
 rescue Parslet::ParseFailed => err
   puts err, fun.root.error_tree
   @trouble += 1
@@ -69,7 +81,7 @@ end
 # parse "=(Tier3WaterData[@[Scouring/Washing]]+WaterProcessTotal)*WaterFabricFactor"
 # parse "=Tier3ProcessInformation[Material]=Tier3WaterData[@Material]"
 # parse "=(\"Water\"=Tier3ProcessInformation[ProcessType])"
-parse "=Weighting!$H$2"
+# parse "=Weighting!$H$2"
 # parse "=SUM(Tier3ProcessInformation[Material/Washing],Tier3ProcessInformation[Material])"
 # parse "=SUM((Tier3ProcessInformation[Material]=Tier3WaterData[@Material])*(\"Water\"=Tier3ProcessInformation[ProcessType])*(Tier3ProcessInformation[Type per Phase]))"
 # parse "=(Tier3ProcessInformation[Material]=Tier3WaterData[@Material])*(\"Water\"=Tier3ProcessInformation[ProcessType])*(Tier3ProcessInformation[Type per Phase])"
@@ -78,5 +90,10 @@ parse "=Weighting!$H$2"
 # parse "=SUM((Tier3ProcessInformation[Material]=Tier3WaterData[@Material])*(\"Water\"=Tier3ProcessInformation[ProcessType])*(Tier3ProcessInformation[Type per Phase]))"
 # parse "=IF(LOWER(Tier3WaterData[@Fabric])=\"y\",Tier3WaterData[@[Fabric Add on]],1)"
 # parse "=IF(LOWER(Tier3WaterData[@Fabric])=\"y\",Tier3WaterData[@[Fabric Add on]],1)"
+
+load("try4UTF8/Tier3Functions.json")['data'].each do |row|
+  parse row['Function'],row['Function Name']
+end
+
 
 puts "\n\n#{@trouble} trouble"
