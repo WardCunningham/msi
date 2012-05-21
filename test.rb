@@ -16,22 +16,24 @@ end
 class Fun < Parslet::Parser
   rule(:sp) { match('\s').repeat(1) }
   rule(:sp?) { sp.maybe }
-  rule(:eq) { match('=') }
-  rule(:addop) { match['+-'] }
-  rule(:multop) { match['*/'] }
-  rule(:logicop) { match['='] }
-  rule(:lsqr) { match('\[') }
-  rule(:rsqr) { match('\]') }
-  rule(:lparn) { match('\(') }
-  rule(:rparn) { match('\)') }
-  rule(:at) { match('@') }
-  rule(:comma) { match(',') }
+  rule(:eq) { match('=') >> sp? }
+  rule(:addop) { match['+-'] >> sp? }
+  rule(:multop) { match['*/'] >> sp? }
+  rule(:logicop) { (match('<') >> match('>') | match['<>'] >> match('=') | match['=<>']) >> sp? }
+  rule(:lsqr) { match('\[') >> sp? }
+  rule(:rsqr) { match('\]') >> sp? }
+  rule(:lparn) { match('\(') >> sp? }
+  rule(:rparn) { match('\)') >> sp? }
+  rule(:at) { match('@') >> sp? }
+  rule(:comma) { match(',') >> sp? }
   rule(:dot) { match('\.') }
   rule(:digits) { match['0-9'].repeat(1) }
-  rule(:letters) { match['a-zA-Z'].repeat(1) }
-  rule(:dollar) { match('$') }
-  rule(:bang) { match('\!') }
+  rule(:letters) { match['A-Z'].repeat(1) }
+  rule(:dollar) { match('\$') >> sp? }
+  rule(:bang) { match('\!') >> sp? }
+  rule(:coln) { match('\:') >> sp? }
   rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(1) }
+  rule(:file) { match("'") >> match["^'"].repeat(0).as(:file) >> match("'") }
   
   rule(:num) { ((digits >> (dot >> digits.maybe).maybe) | (dot >> digits)).as(:number)}
   rule(:frml) { name.as(:formula)}
@@ -42,8 +44,9 @@ class Fun < Parslet::Parser
   rule(:args) { expr >> (comma >> expr).repeat(0) }
   rule(:call) { name.as(:function) >> lparn >> args.as(:args) >> rparn }
   rule(:cname) { match['^\]'].repeat(1).as(:column) }
-  rule(:col) { (lsqr >> cname >> rsqr) | cname }
-  rule(:ref) { name.as(:table) >> lsqr >> at.as(:current).maybe >> col >> rsqr }
+  rule(:ending) { coln >> lsqr >> cname.as(:ending) >> rsqr }
+  rule(:col) { (lsqr >> cname >> rsqr >> ending.maybe) | cname }
+  rule(:ref) { (name | file).as(:table).maybe >> lsqr >> at.as(:current).maybe >> col >> rsqr}
   rule(:str) { match('"') >> match['^"'].repeat(0).as(:string) >> match('"') }
   rule(:paren) { (lparn >> expr >> rparn) }
   rule(:unit) { paren | str | ref | call | cell | frml | num }
@@ -72,7 +75,7 @@ end
 
 @dot = []
 def quote string
-  "\"#{string.to_s.gsub(/([a-z0-9])[_ \/]?([A-Z])/,'\1\n\2')}\""
+  "\"#{string.to_s.gsub(/([a-z0-9]|GHG|MSW)[_ \/]*([A-Z])/,'\1\n\2')}\""
 end
 
 def eval from, expr
@@ -80,8 +83,13 @@ def eval from, expr
   puts "--#{expr.inspect}"
   case
   when s=expr[:sheet]
-    # @dot << "#{quote from} -> #{quote s};"
+    label = expr[:absrow] && expr[:abscol] ? "[label=\"$\"]" : ""
+    # label = "[label=\"#{[:abscol, :absrow].collect {|abs| expr[abs] ? "$" : "."}}\"]"
+    @dot << "#{quote s} [fillcolor=white];" unless @columns[@sheets[s.to_s]]
+    @dot << "#{quote from} -> #{quote s} #{label};"
     @sheets[s.to_s] = 1
+  when r=expr[:absrow]||expr[:row]
+    # nothing special yet
   when o=expr[:op]
     eval from, expr[:left]
     eval from, expr[:right]
@@ -89,11 +97,13 @@ def eval from, expr
     # @dot << "#{quote from} -> #{quote f};"
     @functs[f.to_s] = 1
     [expr[:args]].flatten.each {|arg| eval from, arg}
-  when t=expr[:table]
-    @dot << "#{quote from} -> #{quote expr[:column]};"
-    @dot << "#{quote expr[:column]} -> #{quote t};"
-    @columns[expr[:column].to_s] = 1
-    @tables[t.to_s]=1
+  when c=expr[:column]
+    label = expr[:current] ? "[label=\"@\"]" : ""
+    @dot << "#{quote c} [fillcolor=lightgray];" unless @columns[c.to_s]
+    @dot << "#{quote from} -> #{quote c} #{label};"
+    @dot << "#{quote c} -> #{quote expr[:table]};" if expr[:table]
+    @columns[c.to_s] = 1
+    @tables[expr[:table].to_s]=1 if expr[:table]
   when f=expr[:formula]
     @dot << "#{quote from} -> #{quote f};"
     @formulas[f.to_s] = 1
@@ -115,12 +125,23 @@ def parse str, binding=''
   # puts JSON.pretty_generate(expr)
   eval binding, expr
 rescue Parslet::ParseFailed => err
-  puts err, fun.root.error_tree
   @trouble += 1
+  puts "trouble #{@trouble}: ", err, fun.root.error_tree
 end
 
-load("try4UTF8/Tier3Functions.json")['data'].each do |row|
-  parse row['Function'],row['Function Name']
+# parse "=VLOOKUP(C10,'C:UsersJamieDropboxContractingNikeNike MAT Linked FilesRevampedSource2-15-12[Tier 3 internal.xls]Assigned Weights and Tables'!$A$253:$B$289,2)"
+# exit
+
+# load("try6/Tier3Functions.json")['data'].each do |row|
+#   parse row['Function'],row['Function Name']
+# end
+
+File.open('formulas.txt') do |file|
+  n = 0
+  while (line = file.gets)
+    n += 1
+    parse line.chomp, "formulas(#{n})" unless line =~ /'C:/
+  end
 end
 
 puts "\nsheets: #{@sheets.keys.inspect}"
@@ -131,8 +152,8 @@ puts "\nformulas: #{@formulas.keys.inspect}"
 puts "\nstrings: #{@strings.keys.inspect}"
 puts "\nnumbers: #{@numbers.keys.inspect}"
 
-File.open('test.dot', 'w') do |f|
-  f.puts "\ndigraph nmsi {\nnode[style=filled, fillcolor=gold]\n#{@dot.join("\n")}\n}"
-end
+# File.open('test.dot', 'w') do |f|
+#   f.puts "\ndigraph nmsi {\ngraph[aspect=5];\nnode[style=filled, fillcolor=gold];\n#{@dot.join("\n")}\n}"
+# end
 
 puts "\n\n#{@trouble} trouble"

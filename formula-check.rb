@@ -6,11 +6,13 @@ def load filename
   input = JSON.parse(text)
   columns = input['columns']
   data = input['data']
-  puts "#{filename}: #{data.length} rows x #{columns.length} columns"
+  puts "#{data.length} rows x #{columns.length} columns"
   # puts columns.inspect
   # puts data[0].inspect
   return input
 end
+
+@formulas = File.open 'formulas.txt', 'w'
 
 def stats input
   columns = input['columns']
@@ -19,15 +21,18 @@ def stats input
   columns.each do |col|
     dist = Hash.new(0)
     data.each do |dat|
-      dist[dat[col]] += 1
+      code = dat[col].nil? ? "<nil>" : dat[col]
+      dist[code ] += 1
     end
-    if dist[""] == data.length
+    if dist[""]+dist["<nil>"] == data.length
       empty << col 
     else
-      puts "\n\n#{col.inspect}"
-      dist.each_pair do |key, count|
+      # puts "\n\n#{col.inspect}"
+      dist.keys.sort.each do |key|
+        count = dist[key]
         dup = count>1 ? "#{count} x" : ""
-        puts "\t#{dup}\t#{key.inspect}"
+        puts "\t#{dup}\t#{key.inspect}" # if key =~ /C:/
+        @formulas.puts key if key =~ /^=/
       end
     end
   end
@@ -45,38 +50,19 @@ def index key, table
   return hash
 end
 
-@tables = {}
-@tables["WaterData"] = index "Material", load("try4UTF8/Tier3WaterData.json")
-@functions = index "Function Name", load("try4UTF8/Tier3Functions.json")
-# puts @functions.inspect
-
-
-# report possibly trunctated formulas
-# load("try4UTF8/Tier3Functions.json")['data'].each do |row|
-#   puts "#{row['Function Name']}\t#{row['Function'].length}" if row['Function'].length>30
-# end
-
-load("try4UTF8/Tier3Functions.json")['data'].each do |row|
-  puts "#{row['Function Name']}\t#{row['Function'].length}\n#{row['Function']}" if row['Function'].length>30
+@trouble = 0
+Dir.glob 'try6/*.json' do |filename|
+  next if filename =~ /Tier3Functions.json$/
+  begin
+    sep = "--------------------------------------------"
+    puts "#{sep}\n#{filename}\n#{sep}"
+    stats load filename
+  rescue Exception => e
+    puts "trouble:"
+    puts e.message
+    @trouble += 1
+  end
 end
 
-
-# def eval indent, expr
-#   puts "#{indent}#{expr} ---------------"
-#   if expr =~ /\+/
-#     expr.split(/\*|\+|\-/).each {|token| eval "#{indent}\t", token}
-#   elsif expr =~ /=?Tier3WaterData\[(.*?)\]/
-#     puts "#{indent}#{$1}"
-#   else
-#     expr.scan(/\w+/).each do |token|
-#       if binding = @functions[token]
-#         puts "#{indent} #{token} => #{binding['Function']}"
-#         eval "#{indent}\t", binding['Function']
-#       else
-#         puts "#{indent}#{token}"
-#       end
-#     end
-#   end
-# end
-# 
-# eval "\t", "=WaterYield"
+@formulas.close
+puts "#{@trouble} trouble"
