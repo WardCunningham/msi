@@ -69,14 +69,13 @@ end
 
 @trouble = 0
 def parse str, binding=''
-  fun = Fun.new
   puts "---------------------\n#{binding}#{str}"
-  expr = Fix.new.apply(fun.parse(str))
+  expr = parse_excel str
   # puts JSON.pretty_generate(expr)
   eval binding, expr
 rescue Parslet::ParseFailed => err
   @trouble += 1
-  puts "trouble #{@trouble}: ", err, fun.root.error_tree
+  puts "trouble #{@trouble}: ", err, error_tree
 end
 
 # parse "=VLOOKUP(C10,'C:UsersJamieDropboxContractingNikeNike MAT Linked FilesRevampedSource2-15-12[Tier 3 internal.xls]Assigned Weights and Tables'!$A$253:$B$289,2)"
@@ -107,7 +106,7 @@ puts "\nformulas: #{@formulas.keys.inspect}"
 puts "\nstrings: #{@strings.keys.inspect}"
 puts "\nnumbers: #{@numbers.keys.inspect}"
 
-File.open('test.dot', 'w') do |f|
+File.open('formula-chart.dot', 'w') do |f|
   f.puts "strict digraph nmsi {\ngraph[aspect=5];\nnode[style=filled, fillcolor=gold];\n#{@dot.join("\n")}\n}"
 end
 

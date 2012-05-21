@@ -22,7 +22,7 @@ class Fun < Parslet::Parser
   rule(:coln) { match('\:') >> sp? }
   rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(1) }
   rule(:file) { match("'") >> match["^'"].repeat(0).as(:file) >> match("'") }
-  
+
   rule(:bool) { (str('TRUE') | str('FALSE')).as(:boolean)}
   rule(:num) { ((digits >> (dot >> digits.maybe).maybe) | (dot >> digits)).as(:number)}
   rule(:frml) { name.as(:formula)}
@@ -39,7 +39,7 @@ class Fun < Parslet::Parser
   rule(:quot) { match('"') >> match['^"'].repeat(0).as(:string) >> match('"') }
   rule(:paren) { (lparn >> expr >> rparn) }
   rule(:unit) { paren | quot | bool | ref | call | cell | frml | num }
-  
+
   rule(:prod) { unit.as(:left) >> ( multop.as(:op) >> expr.as(:right) ).maybe }
   rule(:sum) { prod.as(:left) >> ( addop.as(:op) >> expr.as(:right) ).maybe }
   rule(:rel) { sum.as(:left) >> ( relop.as(:op) >> expr.as(:right) ).maybe }
@@ -52,4 +52,15 @@ end
 class Fix < Parslet::Transform
   rule(:left => subtree(:tree)) {tree}
   rule(:name => simple(:name)) { {:name => name.to_s} }
+end
+
+@fun = Fun.new
+@fix = Fix.new
+
+def parse_excel formula
+  @fix.apply @fun.parse formula
+end
+
+def error_tree
+  @fun.root.error_tree
 end
