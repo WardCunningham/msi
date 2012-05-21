@@ -14,7 +14,8 @@ end
 
 @formulas = File.open 'formulas.txt', 'w'
 
-def stats input
+def stats filename
+  input = load filename
   columns = input['columns']
   data = input['data']
   empty = []
@@ -32,15 +33,12 @@ def stats input
         count = dist[key]
         dup = count>1 ? "#{count} x" : ""
         puts "\t#{dup}\t#{key.inspect}" # if key =~ /C:/
-        @formulas.puts key if key =~ /^=/
+        @formulas.puts "#{filename}\t#{col}\t#{key}" if key =~ /^=/
       end
     end
   end
   puts "\n\nEmpty columns:\n\n#{empty.inspect}"
 end
-
-# stats load "try4UTF8/Tier3Functions.json"
-# stats load "try4UTF8/Tier3WaterData.json"
 
 def index key, table
   hash = {}
@@ -56,7 +54,7 @@ Dir.glob 'try6/*.json' do |filename|
   begin
     sep = "--------------------------------------------"
     puts "#{sep}\n#{filename}\n#{sep}"
-    stats load filename
+    stats filename
   rescue Exception => e
     puts "trouble:"
     puts e.message

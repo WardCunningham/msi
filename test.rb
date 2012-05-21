@@ -35,6 +35,7 @@ class Fun < Parslet::Parser
   rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(1) }
   rule(:file) { match("'") >> match["^'"].repeat(0).as(:file) >> match("'") }
   
+  rule(:bool) { (str('TRUE') | str('FALSE')).as(:boolean)}
   rule(:num) { ((digits >> (dot >> digits.maybe).maybe) | (dot >> digits)).as(:number)}
   rule(:frml) { name.as(:formula)}
   rule(:r) { dollar >> digits.as(:absrow) | digits.as(:row) }
@@ -47,9 +48,9 @@ class Fun < Parslet::Parser
   rule(:ending) { coln >> lsqr >> cname.as(:ending) >> rsqr }
   rule(:col) { (lsqr >> cname >> rsqr >> ending.maybe) | cname }
   rule(:ref) { (name | file).as(:table).maybe >> lsqr >> at.as(:current).maybe >> col >> rsqr}
-  rule(:str) { match('"') >> match['^"'].repeat(0).as(:string) >> match('"') }
+  rule(:quot) { match('"') >> match['^"'].repeat(0).as(:string) >> match('"') }
   rule(:paren) { (lparn >> expr >> rparn) }
-  rule(:unit) { paren | str | ref | call | cell | frml | num }
+  rule(:unit) { paren | quot | bool | ref | call | cell | frml | num }
   
   rule(:prod) { unit.as(:left) >> ( multop.as(:op) >> expr.as(:right) ).maybe }
   rule(:sum) { prod.as(:left) >> ( addop.as(:op) >> expr.as(:right) ).maybe }
@@ -80,7 +81,7 @@ end
 
 def eval from, expr
   return unless expr
-  puts "--#{expr.inspect}"
+  # puts "--#{expr.inspect}"
   case
   when s=expr[:sheet]
     label = expr[:absrow] && expr[:abscol] ? "[label=\"$\"]" : ""
@@ -100,8 +101,8 @@ def eval from, expr
   when c=expr[:column]
     label = expr[:current] ? "[label=\"@\"]" : ""
     @dot << "#{quote c} [fillcolor=lightgray];" unless @columns[c.to_s]
-    @dot << "#{quote from} -> #{quote c} #{label};"
-    @dot << "#{quote c} -> #{quote expr[:table]};" if expr[:table]
+    @dot << "#{quote from} -> #{quote c} #{label};" unless c=='Material'
+    @dot << "#{quote expr[:table]} [shape=box]; #{quote c} -> #{quote expr[:table]};" if expr[:table]
     @columns[c.to_s] = 1
     @tables[expr[:table].to_s]=1 if expr[:table]
   when f=expr[:formula]
@@ -111,6 +112,8 @@ def eval from, expr
     @strings[s.to_s] = 1
   when n=expr[:number]
     @numbers[n.to_s] = 1
+  when b=expr[:boolean]
+    @numbers[b.to_s] = 1
   else
     puts "Can't Eval:"
     puts JSON.pretty_generate(expr)
@@ -132,15 +135,20 @@ end
 # parse "=VLOOKUP(C10,'C:UsersJamieDropboxContractingNikeNike MAT Linked FilesRevampedSource2-15-12[Tier 3 internal.xls]Assigned Weights and Tables'!$A$253:$B$289,2)"
 # exit
 
-# load("try6/Tier3Functions.json")['data'].each do |row|
-#   parse row['Function'],row['Function Name']
-# end
+load("try6/Tier3Functions.json")['data'].each do |row|
+  parse row['Function'],row['Function Name']
+end
 
 File.open('formulas.txt') do |file|
+  dup = {}
   n = 0
   while (line = file.gets)
+    (filename, column, formula) = line.chomp.split("\t")
     n += 1
-    parse line.chomp, "formulas(#{n})" unless line =~ /'C:/
+    next if formula =~ /'C:/
+    @dot << "#{quote filename} [shape=box fillcolor=white];\n#{quote filename} -> #{quote column}" unless dup["#{filename}-#{column}"]
+    dup["#{filename}-#{column}"] = 1
+    parse formula, column
   end
 end
 
@@ -152,8 +160,8 @@ puts "\nformulas: #{@formulas.keys.inspect}"
 puts "\nstrings: #{@strings.keys.inspect}"
 puts "\nnumbers: #{@numbers.keys.inspect}"
 
-# File.open('test.dot', 'w') do |f|
-#   f.puts "\ndigraph nmsi {\ngraph[aspect=5];\nnode[style=filled, fillcolor=gold];\n#{@dot.join("\n")}\n}"
-# end
+File.open('test.dot', 'w') do |f|
+  f.puts "strict digraph nmsi {\ngraph[aspect=5];\nnode[style=filled, fillcolor=gold];\n#{@dot.join("\n")}\n}"
+end
 
 puts "\n\n#{@trouble} trouble"
