@@ -87,9 +87,9 @@ class Calculate
       c=expr[:abscol]||expr[:col]
       throw Exception.new "Can't fetch row: '#{r}', column: '#{c}'"
     when o=expr[:op]
-      it = log it, [o], expr
       left = eval it, from, expr[:left]
       right = eval it, from, expr[:right]
+      it = log it, [o], [left,right].collect {|arg|arg.keys}
       case o
       when '+': left + right
       when '-': left - right
@@ -106,7 +106,7 @@ class Calculate
     when f=expr[:function]
       # "SUM", "RANK", "LOWER", "LOG", "MAX", "IFERROR", "MIN", "AVERAGE", "IF", "VLOOKUP"
       args = [expr[:args]].flatten
-      it = log it, [f], args
+      it = log it, [f], args.collect {|arg|arg.keys}
       case f
       when 'SUM': sum args.collect{|arg| eval(it,from,arg)}
       when 'MIN': min args.collect{|arg| eval(it,from,arg)}
