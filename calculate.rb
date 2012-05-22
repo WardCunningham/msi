@@ -87,9 +87,9 @@ class Calculate
       c=expr[:abscol]||expr[:col]
       throw Exception.new "Can't fetch row: '#{r}', column: '#{c}'"
     when o=expr[:op]
+      it = log it, [o], [expr[:left],expr[:right]].collect {|arg|arg.keys}
       left = eval it, from, expr[:left]
       right = eval it, from, expr[:right]
-      it = log it, [o], [left,right].collect {|arg|arg.keys}
       case o
       when '+': left + right
       when '-': left - right
