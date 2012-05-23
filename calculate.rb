@@ -5,8 +5,11 @@ require 'parser2'
 class Calculate
 
   def initialize
+    @dot = []
+    @node = {}
     @log = File.open "calculate.html", "w"
     @log.puts '<body style="font-family: Arial, Helvetica, sans-serif;"><ol>'
+
     @parser = Parser.new
     @data = {}
     @tables = {}
@@ -30,14 +33,31 @@ class Calculate
     end
   end
 
+  def node obj, label=nil
+    if n = @node[obj]
+      return n
+    end
+    @node[obj] = n = "n#{@node.size}"
+    shape = 'shape=square fillcolor=white' if label =~ /fetch/
+    @dot << "#{n} [label = \"#{label}\"  #{shape}];"
+    n
+  end
+
   def log it, mark, show
-    it = it+mark
+    now = it+mark
+    @dot << "#{node it}->#{node now, mark.join('\n').gsub(/[ \/]+/,'\n')};"
     @log.puts "<li>#{it.join(" &nbsp; ")}<br><font color=#ccc>#{show.inspect}</font>\n"
-    return it
+    return now
   end
 
   def close
     @log.close
+    File.open("calculate.dot","w") do |file|
+      file.puts "strict digraph calculate {"
+      file.puts "node [style=filled fillcolor=gold]; edge [dir=back]"
+      @dot.each {|line| file.puts line}
+      file.puts "}"
+    end
   end
 
   def load filename
@@ -54,7 +74,7 @@ class Calculate
   end
 
   def fetch it, from, column
-    it = log it, ['fetch'], [from, column]
+    it = log it, ['fetch',column], [from, column]
     (table, key) = from
     throw Exception.new("No table named '#{table}'") unless tab = @tables[table]
     throw Exception.new("No row with key '#{key}' in #{table}") unless row = tab[key]
@@ -75,7 +95,7 @@ class Calculate
   end
 
   def fetchcol it, from, column
-    it = log it, ['fetchcol'], [from, column]
+    it = log it, ['fetch',column], [from, column]
     (table, key) = from
     val = @data[table].collect do |row|
       # throw Exception.new "Don't fetch columns of formulas yet" if formula = row["#{column}_Formula"]
@@ -172,7 +192,7 @@ class Calculate
       end
     when f=expr[:formula]
       throw Exception.new "Don't know formula: '#{f}'" unless fmla = @formulas[f.to_s]
-      it = log it, [f], fmla
+      it = log it, ['formula',f], fmla
       execute it, from, fmla
     when s=expr[:string]:
       return s.to_s
