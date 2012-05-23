@@ -6,8 +6,9 @@ class Calculate
 
   def initialize
     @log = File.open "calculate.html", "w"
-    @log.puts '<body style="font-family: Arial, Helvetica, sans-serif;">'
+    @log.puts '<body style="font-family: Arial, Helvetica, sans-serif;"><ol>'
     @parser = Parser.new
+    @data = {}
     @tables = {}
     @columns = {}
     @formulas = {}
@@ -19,6 +20,7 @@ class Calculate
       key = columns[0]
       if filename =~ /\/(\w*)\.json/
         name = $1
+        @data[name] = input['data']
         @tables[name] = index key, input
         @columns[name] = input['columns'].reject{|col|col=~/_Formula/}
       end
@@ -63,7 +65,7 @@ class Calculate
         judge = got == val.to_f ? "<font color=green>GOOD</font>" : "<font color=red>BAD</font>"
         @log.puts "<br>#{judge}: had #{val.inspect}, got #{got.inspect} for #{formula}"
       rescue Exception => e
-        log it, ['<font color=red>ERROR</font>'], "#{e.message}<br>#{e.backtrace.join('<br>')}"
+        log it, ['<font color=red>RESCUE</font>'], "#{e.message}<br>#{e.backtrace.join('<br>')}"
         return val
       end
     else
@@ -72,10 +74,44 @@ class Calculate
     val
   end
 
+  def fetchcol it, from, column
+    it = log it, ['fetchcol'], [from, column]
+    (table, key) = from
+    val = @data[table].collect do |row|
+      # throw Exception.new "Don't fetch columns of formulas yet" if formula = row["#{column}_Formula"]
+      row[column.to_s]
+    end
+    @log.puts "<font color=gold>#{val.inspect}</font>"
+    val
+  end
+
   def execute it, from, formula
     it = log it, ['execute'], "<font color=blue>#{formula}</font>"
     expr = @parser.parse_excel formula
     eval it, from, expr
+  end
+
+  def num obs
+    Integer(obs) rescue Float(obs) rescue obs
+  end
+
+  def binary left, right, op
+    @log.puts "(#{[*left].length} #{op} #{[*right].length})"
+    val = if left.is_a? Array
+      if right.is_a? Array
+        (1..[left.length, right.length].min).collect {|i| yield num(left[i]), num(right[i])}
+      else
+        left.collect {|each| yield num(each), num(right)}
+      end
+    else
+      if right.is_a? Array
+        right.collect {|each| yield num(left), num(each)}
+      else
+        yield num(left), num(right)
+      end
+    end
+    @log.puts "<font color=gold>#{val.inspect}</font>"
+    val
   end
 
   def eval it, from, expr
@@ -91,16 +127,16 @@ class Calculate
       left = eval it, from, expr[:left]
       right = eval it, from, expr[:right]
       case o
-      when '+': left + right
-      when '-': left - right
-      when '*': left * right
-      when '/': left / right
-      when '=': left == right ? 1 : 0
-      when '<>': left != right ? 1 : 0
-      when '>': left > right ? 1 : 0
-      when '<': left < right ? 1 : 0
-      when '>=': left >= right ? 1 : 0
-      when '<=': left <= right ? 1 : 0
+      when '+': binary(left,right,o) {|left,right| left + right}
+      when '-': binary(left,right,o) {|left,right| left - right}
+      when '*': binary(left,right,o) {|left,right| left * right}
+      when '/': binary(left,right,o) {|left,right| left / right}
+      when '=': binary(left,right,o) {|left,right| left == right ? 1 : 0}
+      when '<>': binary(left,right,o) {|left,right| left != right ? 1 : 0}
+      when '>': binary(left,right,o) {|left,right| left > right ? 1 : 0}
+      when '<': binary(left,right,o) {|left,right| left < right ? 1 : 0}
+      when '>=': binary(left,right,o) {|left,right| left >= right ? 1 : 0}
+      when '<=': binary(left,right,o) {|left,right| left <= right ? 1 : 0}
       else throw Exception.new "Don't know op: '#{o}'"
       end
     when f=expr[:function]
@@ -116,15 +152,23 @@ class Calculate
       else throw Exception.new "Don't know function: '#{f}'"
       end
     when c=expr[:column]
-      if e=expr[:ending]
-        tab = (expr[:table]||from[0]).to_s
-        cols = @columns[tab]
-        indx = cols.index(c.to_s) .. cols.index(e[:column].to_s)
-        it = log it, ["[]:[]"], cols[indx]
-        range = cols[indx].collect{ |col| fetch it,[tab, from[1]], col }
+      tab = (expr[:table]||from[0]).to_s
+      cols = @columns[tab]
+      if ending=expr[:ending]
+        if expr[:current]
+          indx = cols.index(c.to_s) .. cols.index(ending[:column].to_s)
+          it = log it, ["#{expr[:current]}[]:[]"], cols[indx]
+          range = cols[indx].collect{ |col| fetch it,[tab, from[1]], col }
+        else
+          throw Exception "Don't yet handle 2D range"
+        end
       else
-        it = log it, ['[]'], c
-        fetch it, from, c.to_s
+        it = log it, ["#{expr[:current]}[]"], c
+        if expr[:current]
+          fetch it, [tab, from[1]], c.to_s
+        else
+          fetchcol it, [tab, nil], c.to_s
+        end
       end
     when f=expr[:formula]
       throw Exception.new "Don't know formula: '#{f}'" unless fmla = @formulas[f.to_s]

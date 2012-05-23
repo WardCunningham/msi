@@ -1,6 +1,9 @@
 require 'rubygems'
 require 'parslet'
 
+# http://office.microsoft.com/en-us/excel-help/using-structured-references-with-excel-tables-HA010155686.aspx
+# http://blogs.office.com/b/microsoft-excel/archive/2010/01/25/table-improvements-in-excel-2010.aspx
+
 class Parser
   class Fun < Parslet::Parser
     rule(:sp) { match('\s').repeat(1) }
