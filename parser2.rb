@@ -9,9 +9,11 @@ class Parser
     rule(:sp) { match('\s').repeat(1) }
     rule(:sp?) { sp.maybe }
     rule(:eq) { match('=') >> sp? }
-    rule(:addop) { match['+-'] >> sp? }
-    rule(:multop) { match['*/'] >> sp? }
-    rule(:relop) { (match('<') >> match('>') | match['<>'] >> match('=') | match['=<>']) >> sp? }
+    rule(:addop) { match['+-'].as(:op) >> sp? }
+    rule(:multop) { match['*/'].as(:op) >> sp? }
+    rule(:expop) { match('\^').as(:op) >> sp? }
+    rule(:catop) { match('&').as(:op) >> sp? }
+    rule(:relop) { (match('<') >> match('>') | match['<>'] >> match('=') | match['=<>']).as(:op) >> sp? }
     rule(:lsqr) { match('\[') >> sp? }
     rule(:rsqr) { match('\]') >> sp? }
     rule(:lparn) { match('\(') >> sp? }
@@ -24,16 +26,16 @@ class Parser
     rule(:dollar) { match('\$') >> sp? }
     rule(:bang) { match('\!') >> sp? }
     rule(:coln) { match('\:') >> sp? }
-    rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(1) }
+    rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(0) }
     rule(:file) { match("'") >> match["^'"].repeat(0).as(:file) >> match("'") }
 
     rule(:bool) { (str('TRUE') | str('FALSE')).as(:boolean)}
-    rule(:num) { ((digits >> (dot >> digits.maybe).maybe) | (dot >> digits)).as(:number)}
-    rule(:frml) { name.as(:formula)}
+    rule(:num) { (str('-').maybe >> ((digits >> (dot >> digits.maybe).maybe) | (dot >> digits)) >> (match['eE'] >> match['+-'].maybe >> digits).maybe).as(:number) >> sp?}
+    rule(:frml) { name.as(:formula) >> sp?}
     rule(:r) { dollar >> digits.as(:absrow) | digits.as(:row) }
     rule(:c) { dollar >> letters.as(:abscol) | letters.as(:col) }
     rule(:sheet) { name.as(:sheet) }
-    rule(:cell) { (sheet >> bang).maybe >> c >> r }
+    rule(:cell) { (sheet >> bang).maybe >> c >> r >> sp? }
     rule(:args) { expr >> (comma >> expr).repeat(0) }
     rule(:call) { name.as(:function) >> lparn >> args.as(:args) >> rparn }
     rule(:cname) { match['^\]'].repeat(1).as(:column) }
@@ -44,9 +46,11 @@ class Parser
     rule(:paren) { (lparn >> expr >> rparn) }
     rule(:unit) { paren | quot | bool | ref | call | cell | frml | num }
 
-    rule(:prod) { unit.as(:left) >> ( multop.as(:op) >> expr.as(:right) ).maybe }
-    rule(:sum) { prod.as(:left) >> ( addop.as(:op) >> expr.as(:right) ).maybe }
-    rule(:rel) { sum.as(:left) >> ( relop.as(:op) >> expr.as(:right) ).maybe }
+    rule(:exp) { unit.as(:left) >> ( expop.as(:opsp) >> expr.as(:right) ).maybe }
+    rule(:prod) { exp.as(:left) >> ( multop.as(:opsp) >> expr.as(:right) ).maybe }
+    rule(:sum) { prod.as(:left) >> ( addop.as(:opsp) >> expr.as(:right) ).maybe }
+    rule(:cat) { sum.as(:left) >> ( catop.as(:opsp) >> expr.as(:right) ).maybe }
+    rule(:rel) { cat.as(:left) >> ( relop.as(:opsp) >> expr.as(:right) ).maybe }
 
     rule(:expr) { rel }
     rule(:defn) { eq >> expr }
@@ -54,6 +58,7 @@ class Parser
   end
 
   class Fix < Parslet::Transform
+    rule(:opsp => simple(:op)) { {:op => op} }
     rule(:left => subtree(:tree)) {tree}
     rule(:name => simple(:name)) { {:name => name.to_s} }
   end
