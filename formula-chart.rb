@@ -147,9 +147,6 @@ Dir.glob("#{@try}/*.json") do |focus|
     while (line = file.gets)
       (filename, column, formula) = line.chomp.split("\t")
       next unless filename == focus
-      next if formula =~ /'C:/
-      next if formula =~ /Tier1Raw![A-Z]\d\d/
-      next if formula =~ /Tier1Raw![A-Z][3-9]/
       @dot << "#{table} [shape=box fillcolor=white label=#{quote table}];\n#{table} -> #{quote column}"
       parse formula, column
     end
