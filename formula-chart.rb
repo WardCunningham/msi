@@ -65,7 +65,7 @@ def eval from, expr
   when c=expr[:column]
     label = expr[:current] ? "[label=\"@\"]" : ""
     @dot << "#{quote c} [fillcolor=lightgray];" unless @columns[c.to_s]
-    @dot << "#{quote from} -> #{quote c} #{label};" unless c=='Material'
+    @dot << "#{quote from} -> #{quote c} #{label};"
     if expr[:table]
       if @tablesWithFormulas[expr[:table].to_s] == 1
         @dot << "#{quote expr[:table]} [shape=box fillcolor=white URL=\"#{expr[:table]}.svg\"]"
@@ -124,7 +124,7 @@ end
 #   parse row['Function'],row['Function Name']
 # end
 
-@try = 'try8'
+@try = 'try9'
 load("#{@try}/Tier3Functions.json")['data'].each do |row|
   @formulas[row['Function Name']] = row['Function']
 end

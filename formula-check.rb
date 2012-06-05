@@ -70,7 +70,7 @@ def index key, table
   return hash
 end
 
-Dir.glob 'try8/*.json' do |filename|
+Dir.glob 'try9/*.json' do |filename|
   next if filename =~ /Tier3Functions.json$/
   begin
     sep = "--------------------------------------------"
