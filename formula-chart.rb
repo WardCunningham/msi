@@ -22,11 +22,20 @@ end
 @undef = {}
 @ref = {}
 
-@dot = []
 @formulas = {}
+@tablesWithFormulas = {}
 @parser = Parser.new
 
+@trouble = 0
+def trouble message
+  puts "\nTrouble #{@trouble += 1}"
+  puts message
+end
+
+
+
 def quote string
+  trouble "quoting empty" if string.to_s.length < 1
   "\"#{string.to_s.gsub(/([a-z0-9]|GHG|MSW)[_ \/]*([A-Z])/,'\1\n\2')}\""
 end
 
@@ -49,14 +58,22 @@ def eval from, expr
     eval from, expr[:left]
     eval from, expr[:right]
   when f=expr[:function]
-    # @dot << "#{quote from} -> #{quote f};"
+    @dot << "#{quote f+from} [shape=none fillcolor=lightgray label=#{quote f}]"
+    @dot << "#{quote from} -> #{quote f+from};"
     @functs[f.to_s] = 1
-    [expr[:args]].flatten.each {|arg| eval from, arg}
+    [expr[:args]].flatten.each {|arg| eval f+from, arg}
   when c=expr[:column]
     label = expr[:current] ? "[label=\"@\"]" : ""
     @dot << "#{quote c} [fillcolor=lightgray];" unless @columns[c.to_s]
     @dot << "#{quote from} -> #{quote c} #{label};" unless c=='Material'
-    @dot << "#{quote expr[:table]} [shape=box]; #{quote c} -> #{quote expr[:table]};" if expr[:table]
+    if expr[:table]
+      if @tablesWithFormulas[expr[:table].to_s] == 1
+        @dot << "#{quote expr[:table]} [shape=box fillcolor=white URL=\"#{expr[:table]}.svg\"]"
+      else
+        @dot << "#{quote expr[:table]} [shape=box fillcolor=white fontcolor=gray]"
+      end
+      @dot << "#{quote c} -> #{quote expr[:table]};"
+    end
     @columns[c.to_s] = 1
     @tables[expr[:table].to_s]=1 if expr[:table]
   when f=expr[:formula]
@@ -81,15 +98,14 @@ def eval from, expr
   end
 end
 
-@trouble = 0
-def parse str, binding=''
+def parse str, binding='root'
   puts "---------------------\n#{binding}#{str}"
   expr = @parser.parse_excel str
   # puts JSON.pretty_generate(expr)
   eval binding, expr
 rescue Parslet::ParseFailed => err
-  @trouble += 1
-  puts "trouble #{@trouble}: ", err, @parser.error_tree
+  trouble err
+  puts @parser.error_tree
 end
 
 
@@ -99,27 +115,50 @@ end
 
 # parse "=IFERROR(SUM(IF(([@TransportSenario]=Tier3TransportSenario[Scenario]),INDIRECT(\"Tier3TransportSenario[\"&[@ProcessType]&\"]\"))),0)"
 
+# @dot = []
+# parse "=IF(LOWER(Tier3WaterData[@Fabric])=\"y\",Tier3WaterData[@[Fabric Add on]],1)"
+# @dot.each {|e| puts e}
 # exit
 
 # load("try8/Tier3Functions.json")['data'].each do |row|
 #   parse row['Function'],row['Function Name']
 # end
 
-load("try8/Tier3Functions.json")['data'].each do |row|
+@try = 'try8'
+load("#{@try}/Tier3Functions.json")['data'].each do |row|
   @formulas[row['Function Name']] = row['Function']
 end
 
 File.open('formulas.txt') do |file|
-  dup = {}
-  n = 0
   while (line = file.gets)
     (filename, column, formula) = line.chomp.split("\t")
-    n += 1
-    next if formula =~ /'C:/
-    @dot << "#{quote filename} [shape=box fillcolor=white];\n#{quote filename} -> #{quote column}" unless dup["#{filename}-#{column}"]
-    dup["#{filename}-#{column}"] = 1
-    parse formula, column
+    (prefix, table, sufix) = filename.split(/[\.\/]/)
+    @tablesWithFormulas[table] = 1
   end
+end
+puts @tablesWithFormulas.inspect
+
+Dir.glob("#{@try}/*.json") do |focus|
+  (prefix, table, sufix) = focus.split(/[\.\/]/)
+  trouble "can't grok table name" unless table.length>0
+  puts "\n**** #{table} ****"
+  @dot = []
+  File.open('formulas.txt') do |file|
+    while (line = file.gets)
+      (filename, column, formula) = line.chomp.split("\t")
+      next unless filename == focus
+      next if formula =~ /'C:/
+      next if formula =~ /Tier1Raw![A-Z]\d\d/
+      next if formula =~ /Tier1Raw![A-Z][3-9]/
+      @dot << "#{table} [shape=box fillcolor=white label=#{quote table}];\n#{table} -> #{quote column}"
+      parse formula, column
+    end
+  end
+  next unless @dot.length > 0
+  File.open("formula-chart.dot", 'w') do |f|
+    f.puts "strict digraph nmsi {\nnode[style=filled, fillcolor=gold];\n#{@dot.join("\n")}\n}"
+  end
+  puts `cat formula-chart.dot | dot -Tsvg -o#{@try}/svg/#{table}.svg`
 end
 
 puts "\nsheets: #{@sheets.keys.inspect}"
@@ -130,9 +169,5 @@ puts "\nstrings: #{@strings.keys.inspect}"
 puts "\nnumbers: #{@numbers.keys.inspect}"
 puts "\nundef: #{@undef.keys.inspect}"
 puts "\nunref: #{(@formulas.keys - @ref.keys).inspect}"
-
-File.open('formula-chart.dot', 'w') do |f|
-  f.puts "strict digraph nmsi {\ngraph[aspect=5];\nnode[style=filled, fillcolor=gold];\n#{@dot.join("\n")}\n}"
-end
 
 puts "\n\n#{@trouble} trouble"
