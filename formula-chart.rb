@@ -36,7 +36,16 @@ end
 
 def quote string
   trouble "quoting empty" if string.to_s.length < 1
-  "\"#{string.to_s.gsub(/([a-z0-9]|GHG|MSW)[_ \/]*([A-Z])/,'\1\n\2')}\""
+  "\"#{string.to_s.gsub(/([a-z0-9]|GHG|MSW)[_ \/]*([A-Z(])/,'\1\n\2')}\""
+end
+
+def dot_table from, table
+  if @tablesWithFormulas[table.to_s] == 1
+    @dot << "#{quote table} [shape=folder fillcolor=white URL=\"#{table}.svg\"]"
+  else
+    @dot << "#{quote table} [shape=folder fillcolor=white fontcolor=gray]"
+  end
+  @dot << "#{quote from} -> #{quote table};"
 end
 
 def eval from, expr
@@ -46,11 +55,11 @@ def eval from, expr
   when s=expr[:sheet]
     label = expr[:absrow] && expr[:abscol] ? "[label=\"$\"]" : ""
     # label = "[label=\"#{[:abscol, :absrow].collect {|abs| expr[abs] ? "$" : "."}}\"]"
-    @dot << "#{quote s} [fillcolor=white];" unless @columns[@sheets[s.to_s]]
-    @dot << "#{quote from} -> #{quote s} #{label};"
+    @dot << "#{quote s} [fillcolor=white]"
+    @dot << "#{quote from} -> #{quote s} #{label}"
     @sheets[s.to_s] = 1
-  when r=expr[:absrow]||expr[:row]
-    # nothing special yet
+  when r=expr[:abscol]||expr[:col]
+    @dot << "#{quote from} -> #{quote r}"
   when o=expr[:op]
     eval from, expr[:left]
     eval from, expr[:right]
@@ -58,34 +67,39 @@ def eval from, expr
     eval from, expr[:left]
     eval from, expr[:right]
   when f=expr[:function]
-    @dot << "#{quote f+from} [shape=none fillcolor=lightgray label=#{quote f}]"
-    @dot << "#{quote from} -> #{quote f+from};"
+    succ = "#{from}-#{f}"
+    @dot << "#{quote succ} [shape=none fillcolor=lightgray label=#{quote f}]"
+    @dot << "#{quote from} -> #{quote succ};"
     @functs[f.to_s] = 1
-    [expr[:args]].flatten.each {|arg| eval f+from, arg}
+    if f == 'VLOOKUP'
+      (key, tab, col, bol) = expr[:args]
+      dot_table succ, tab[:formula]
+      [key, col, bol].each  {|arg| eval succ, arg}
+    else
+      [expr[:args]].flatten.each {|arg| eval succ, arg}
+    end
   when c=expr[:column]
     label = expr[:current] ? "[label=\"@\"]" : ""
-    @dot << "#{quote c} [fillcolor=lightgray];" unless @columns[c.to_s]
-    @dot << "#{quote from} -> #{quote c} #{label};"
-    if expr[:table]
-      if @tablesWithFormulas[expr[:table].to_s] == 1
-        @dot << "#{quote expr[:table]} [shape=box fillcolor=white URL=\"#{expr[:table]}.svg\"]"
-      else
-        @dot << "#{quote expr[:table]} [shape=box fillcolor=white fontcolor=gray]"
-      end
-      @dot << "#{quote c} -> #{quote expr[:table]};"
+    if t=expr[:table]
+      @dot << "#{col = quote t+c} [fillcolor=white, label=#{quote c}]"
+      dot_table t+c, t
+    else
+      @dot << "#{col = quote c} [fillcolor=gold]"
     end
+    @dot << "#{quote from} -> #{col} #{label};"
     @columns[c.to_s] = 1
     @tables[expr[:table].to_s]=1 if expr[:table]
   when f=expr[:formula]
-    @dot << "#{quote from} -> #{quote f};"
     # @formulas[f.to_s] = 1
     defn = @formulas[f.to_s]
     if defn
       @ref[f.to_s] = 1
-      parse defn, f.to_s
+      @dot << "#{quote 'f-'+f} [shape=box fillcolor=lightblue label=#{quote f}tooltip=\"#{defn.gsub /"/, '\"'}\"]"
+      parse defn, 'f-'+f
     else
       @undef[f.to_s] = 1
     end
+    @dot << "#{quote from} -> #{quote 'f-'+f};"
   when s=expr[:string]
     @strings[s.to_s] = 1
   when n=expr[:number]
@@ -145,15 +159,26 @@ Dir.glob("#{@try}/*.json") do |focus|
   @dot = []
   File.open('formulas.txt') do |file|
     while (line = file.gets)
-      (filename, column, formula) = line.chomp.split("\t")
+      (filename, column_formula, formula) = line.chomp.split("\t")
+      (column, sufix) = column_formula.split('_')
       next unless filename == focus
-      @dot << "#{table} [shape=box fillcolor=white label=#{quote table}];\n#{table} -> #{quote column}"
-      parse formula, column
+      @dot << "#{table} [shape=folder fillcolor=white label=#{quote table}]"
+      @dot << "#{quote column} [fillcolor=white]"
+      @dot << "#{quote column_formula} [shape=box fillcolor=gold tooltip=\"#{formula.gsub /"/, '\"'}\"]"
+      @dot << "#{table} -> #{quote column} -> #{quote column_formula}"
+    end
+  end
+  File.open('formulas.txt') do |file|
+    while (line = file.gets)
+      (filename, column_formula, formula) = line.chomp.split("\t")
+      (column, sufix) = column_formula.split('_')
+      next unless filename == focus
+      parse formula, column_formula
     end
   end
   next unless @dot.length > 0
   File.open("formula-chart.dot", 'w') do |f|
-    f.puts "strict digraph nmsi {\nnode[style=filled, fillcolor=gold];\n#{@dot.join("\n")}\n}"
+    f.puts "strict digraph \"\" {\nnode[style=filled, fillcolor=pink];\n#{@dot.join("\n")}\n}"
   end
   puts `cat formula-chart.dot | dot -Tsvg -o#{@try}/svg/#{table}.svg`
 end
