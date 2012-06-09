@@ -42,9 +42,10 @@ class Parser
     rule(:ending) { coln >> lsqr >> cname.as(:ending) >> rsqr }
     rule(:col) { (lsqr >> cname >> rsqr >> ending.maybe) | cname }
     rule(:ref) { (name | file).as(:table).maybe >> lsqr >> at.as(:current).maybe >> col >> rsqr}
+    rule(:colref) { (name | file).as(:table).maybe >> str('[[#Headers],') >> col >> rsqr}
     rule(:quot) { match('"') >> match['^"'].repeat(0).as(:string) >> match('"') }
     rule(:paren) { (lparn >> expr >> rparn) }
-    rule(:unit) { paren | quot | bool | ref | call | cell | frml | num }
+    rule(:unit) { paren | quot | bool | colref | ref | call | cell | frml | num }
 
     rule(:exp) { unit.as(:left) >> ( expop.as(:opsp) >> expr.as(:right) ).maybe }
     rule(:prod) { exp.as(:left) >> ( multop.as(:opsp) >> expr.as(:right) ).maybe }
