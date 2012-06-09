@@ -12,7 +12,6 @@ def load filename
   return input
 end
 
-@formulas = File.open 'formulas.txt', 'w'
 @materials = []
 @trouble = 0
 
@@ -70,7 +69,10 @@ def index key, table
   return hash
 end
 
-Dir.glob 'try9/*.json' do |filename|
+try = 'db/6-9-12'
+@formulas = File.open "#{try}/Processed/formulas.txt", 'w'
+
+Dir.glob "#{try}/Raw/*.json" do |filename|
   next if filename =~ /Tier3Functions.json$/
   begin
     sep = "--------------------------------------------"

@@ -36,16 +36,19 @@ end
 
 def quote string
   trouble "quoting empty" if string.to_s.length < 1
-  "\"#{string.to_s.gsub(/([a-z0-9]|GHG|MSW)[_ \/]*([A-Z(])/,'\1\n\2')}\""
+  "\"#{string.to_s.gsub(/([a-z0-9]|HG|SW|SI)[_ \/]*([A-Z(])/,'\1\n\2')}\""
 end
 
 def dot_table from, table
   if @tablesWithFormulas[table.to_s] == 1
     @dot << "#{quote table} [shape=folder fillcolor=white URL=\"#{table}.svg\"]"
+    @dot_index << "#{quote table} [shape=folder fillcolor=white URL=\"#{table}.svg\"]"
   else
     @dot << "#{quote table} [shape=folder fillcolor=white fontcolor=gray]"
+    @dot_index << "#{quote table} [shape=folder fillcolor=white fontcolor=gray]"
   end
   @dot << "#{quote from} -> #{quote table};"
+  @dot_index << "#{quote @dot_index_table} -> #{quote table};"
 end
 
 def eval from, expr
@@ -130,7 +133,7 @@ end
 # parse "=IFERROR(SUM(IF(([@TransportSenario]=Tier3TransportSenario[Scenario]),INDIRECT(\"Tier3TransportSenario[\"&[@ProcessType]&\"]\"))),0)"
 
 # @dot = []
-# parse "=IF(LOWER(Tier3WaterData[@Fabric])=\"y\",Tier3WaterData[@[Fabric Add on]],1)"
+# parse "=IFERROR(VLOOKUP([@[Textile Location]],Tier3HydroSources,COLUMN(Tier3HydroSources[[#Headers],[% Renewable (no big hydro)]]),FALSE),\"\")"
 # @dot.each {|e| puts e}
 # exit
 
@@ -138,26 +141,28 @@ end
 #   parse row['Function'],row['Function Name']
 # end
 
-@try = 'try9'
-load("#{@try}/Tier3Functions.json")['data'].each do |row|
+@try = 'db/6-9-12'
+load("#{@try}/Raw/Tier3Functions.json")['data'].each do |row|
   @formulas[row['Function Name']] = row['Function']
 end
 
-File.open('formulas.txt') do |file|
+File.open("#{@try}/Processed/formulas.txt") do |file|
   while (line = file.gets)
     (filename, column, formula) = line.chomp.split("\t")
-    (prefix, table, sufix) = filename.split(/[\.\/]/)
+    (p1, p2, p3, table, sufix) = filename.split(/[\.\/]/)
     @tablesWithFormulas[table] = 1
   end
 end
 puts @tablesWithFormulas.inspect
 
-Dir.glob("#{@try}/*.json") do |focus|
-  (prefix, table, sufix) = focus.split(/[\.\/]/)
+@dot_index = []
+Dir.glob("#{@try}/Raw/*.json") do |focus|
+  (p1, p2, p3, table, sufix) = focus.split(/[\.\/]/)
+  @dot_index_table = table
   trouble "can't grok table name" unless table.length>0
   puts "\n**** #{table} ****"
   @dot = []
-  File.open('formulas.txt') do |file|
+  File.open("#{@try}/Processed/formulas.txt") do |file|
     while (line = file.gets)
       (filename, column_formula, formula) = line.chomp.split("\t")
       (column, sufix) = column_formula.split('_')
@@ -168,7 +173,7 @@ Dir.glob("#{@try}/*.json") do |focus|
       @dot << "#{table} -> #{quote column} -> #{quote column_formula}"
     end
   end
-  File.open('formulas.txt') do |file|
+  File.open("#{@try}/Processed/formulas.txt") do |file|
     while (line = file.gets)
       (filename, column_formula, formula) = line.chomp.split("\t")
       (column, sufix) = column_formula.split('_')
@@ -180,8 +185,14 @@ Dir.glob("#{@try}/*.json") do |focus|
   File.open("formula-chart.dot", 'w') do |f|
     f.puts "strict digraph \"\" {\nnode[style=filled, fillcolor=pink];\n#{@dot.join("\n")}\n}"
   end
-  puts `cat formula-chart.dot | dot -Tsvg -o#{@try}/svg/#{table}.svg`
+  puts `cat formula-chart.dot | dot -Tsvg -o#{@try}/Processed/#{table}.svg`
 end
+
+File.open("formula-chart.dot", 'w') do |f|
+  f.puts "strict digraph \"\" {\nnode[style=filled, fillcolor=pink];\n#{@dot_index.join("\n")}\n}"
+end
+puts `cat formula-chart.dot | dot -Tsvg -o#{@try}/Processed/index.svg`
+
 
 puts "\nsheets: #{@sheets.keys.inspect}"
 puts "\nfuncts: #{@functs.keys.inspect}"
