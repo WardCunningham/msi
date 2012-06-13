@@ -32,11 +32,31 @@ def trouble message
   puts message
 end
 
+def leftpos expr
+  n = 9999
+  case
+  when expr.kind_of?(Hash) then expr.each {|k,v| n = [n, leftpos(v)].min}
+  when expr.kind_of?(Array) then expr.each {|v| n = [n, leftpos(v)].min}
+  when expr.kind_of?(Parslet::Slice) then n = [n, expr.offset].min
+  else puts "don't know leftpos of #{expr.class}"
+  end
+  return n
+end
 
+def rightpos expr
+  n = -1
+  case
+  when expr.kind_of?(Hash) then expr.each {|k,v| n = [n, rightpos(v)].max}
+  when expr.kind_of?(Array) then expr.each {|v| n = [n, rightpos(v)].max}
+  when expr.kind_of?(Parslet::Slice) then n = [n, expr.offset+expr.to_s.length].max
+  else puts "don't know rightpos of #{expr.class}"
+  end
+  return n
+end
 
 def quote string
   trouble "quoting empty" if string.to_s.length < 1
-  "\"#{string.to_s.gsub(/([a-z0-9]|HG|SW|SI)[_ \/]*([A-Z(])/,'\1\n\2')}\""
+  "\"#{string.to_s.gsub(/"/,'\"').gsub(/([a-z0-9]|HG|SW|SI)[_ \/]*([A-Z(])/,'\1\n\2')}\""
 end
 
 def dot_table from, table
@@ -51,7 +71,17 @@ def dot_table from, table
   @dot_index << "#{quote @dot_index_table} -> #{quote table};"
 end
 
-def eval from, expr
+@checked_url = {}
+def column_url table, column
+  short = column.to_s.gsub /[^A-Za-z0-9]/,''
+  file = "#{table}-#{short}.html"
+  check = "#{@dot_index_table} #{file}"
+  trouble "Table #{@dot_index_table} references missing column '#{column}' in '#{table}'" unless File.exists? "#{@try}/Processed/#{file}" or @checked_url[check]
+  @checked_url[check] = 1
+  return "\"#{file}\""
+end
+
+def eval str, from, expr
   return unless expr
   # puts "--#{expr.inspect}"
   case
@@ -64,30 +94,31 @@ def eval from, expr
   when r=expr[:abscol]||expr[:col]
     @dot << "#{quote from} -> #{quote r}"
   when o=expr[:op]
-    eval from, expr[:left]
-    eval from, expr[:right]
+    eval str, from, expr[:left]
+    eval str, from, expr[:right]
   when o=expr[:opsp]
-    eval from, expr[:left]
-    eval from, expr[:right]
+    eval str, from, expr[:left]
+    eval str, from, expr[:right]
   when f=expr[:function]
+    tip = "\"#{str[leftpos(expr)..rightpos(expr)].gsub /"/, '\"'}\""
     succ = "#{from}-#{f}"
-    @dot << "#{quote succ} [shape=none fillcolor=lightgray label=#{quote f}]"
+    @dot << "#{quote succ} [shape=none fillcolor=lightgray label=#{quote f} tooltip=#{tip}]"
     @dot << "#{quote from} -> #{quote succ};"
     @functs[f.to_s] = 1
     if f == 'VLOOKUP'
       (key, tab, col, bol) = expr[:args]
       dot_table succ, tab[:formula]
-      [key, col, bol].each  {|arg| eval succ, arg}
+      [key, col, bol].each  {|arg| eval str, succ, arg}
     else
-      [expr[:args]].flatten.each {|arg| eval succ, arg}
+      [expr[:args]].flatten.each {|arg| eval str, succ, arg}
     end
   when c=expr[:column]
     label = expr[:current] ? "[label=\"@\"]" : ""
     if t=expr[:table]
-      @dot << "#{col = quote t+c} [fillcolor=white, label=#{quote c}]"
+      @dot << "#{col = quote t+c} [fillcolor=white, label=#{quote c} URL=#{column_url t, c}]"
       dot_table t+c, t
     else
-      @dot << "#{col = quote c} [fillcolor=gold]"
+      @dot << "#{col = quote c} [fillcolor=gold URL=#{column_url @dot_index_table, c}]"
     end
     @dot << "#{quote from} -> #{col} #{label};"
     @columns[c.to_s] = 1
@@ -115,14 +146,20 @@ def eval from, expr
   end
 end
 
+@checked_parses = {}
 def parse str, binding='root'
-  puts "---------------------\n#{binding}#{str}"
+  # puts "---------------------\n#{binding} #{str}"
   expr = @parser.parse_excel str
   # puts JSON.pretty_generate(expr)
-  eval binding, expr
+  eval str, binding, expr
 rescue Parslet::ParseFailed => err
-  trouble err
-  puts @parser.error_tree
+  msg = "#{@dot_index_table}: #{binding} #{str}"
+  unless @checked_parses[msg]
+    trouble msg
+    @checked_parses[msg] = 1
+    puts err
+    puts @parser.error_tree
+  end
 end
 
 
@@ -141,7 +178,7 @@ end
 #   parse row['Function'],row['Function Name']
 # end
 
-@try = 'db/6-9-12'
+@try = 'db/6-11-12'
 load("#{@try}/Raw/Tier3Functions.json")['data'].each do |row|
   @formulas[row['Function Name']] = row['Function']
 end
@@ -153,7 +190,6 @@ File.open("#{@try}/Processed/formulas.txt") do |file|
     @tablesWithFormulas[table] = 1
   end
 end
-puts @tablesWithFormulas.inspect
 
 @dot_index = []
 Dir.glob("#{@try}/Raw/*.json") do |focus|
@@ -165,12 +201,13 @@ Dir.glob("#{@try}/Raw/*.json") do |focus|
   File.open("#{@try}/Processed/formulas.txt") do |file|
     while (line = file.gets)
       (filename, column_formula, formula) = line.chomp.split("\t")
-      (column, sufix) = column_formula.split('_')
       next unless filename == focus
+      (column, sufix) = column_formula.split('_')
+      (db, date, raw, table, sufix) = filename.split /[\/\.]/
       @dot << "#{table} [shape=folder fillcolor=white label=#{quote table}]"
-      @dot << "#{quote column} [fillcolor=white]"
-      @dot << "#{quote column_formula} [shape=box fillcolor=gold tooltip=\"#{formula.gsub /"/, '\"'}\"]"
-      @dot << "#{table} -> #{quote column} -> #{quote column_formula}"
+      @dot << "#{quote column} [fillcolor=white URL=#{column_url table, column}]"
+      @dot << "#{quote(column_formula+formula)} [shape=box fillcolor=gold label=#{quote column_formula} tooltip=\"#{formula.gsub /"/, '\"'}\"]"
+      @dot << "#{table} -> #{quote column} -> #{quote(column_formula+formula)}"
     end
   end
   File.open("#{@try}/Processed/formulas.txt") do |file|
@@ -178,7 +215,7 @@ Dir.glob("#{@try}/Raw/*.json") do |focus|
       (filename, column_formula, formula) = line.chomp.split("\t")
       (column, sufix) = column_formula.split('_')
       next unless filename == focus
-      parse formula, column_formula
+      parse formula, column_formula+formula
     end
   end
   next unless @dot.length > 0
