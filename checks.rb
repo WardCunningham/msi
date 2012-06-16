@@ -1,12 +1,30 @@
 require 'rubygems'
 require 'json'
 
+def check key
+  return 'Empty String' if key =~ /^\ *$/
+  return 'Trailing Spaces' if key =~ / $/
+  return 'Double Spaces' if key =~ /  /
+  return 'Leading Spaces' if key =~ /^ /
+  return 'Space After Slash' if key =~ /\/ /
+  return 'Unexpected Asterisk' if key =~ /^ *\*/
+  return 'Inexplicit Single Character' if key =~ /^.$/
+  return 'Unexpected ALL-CAPS' unless key =~ /[a-z]/
+  return nil
+end
+
+
 def load filename
   text = File.read(filename)
   input = JSON.parse(text)
   columns = input['columns']
   data = input['data']
   puts "#{data.length} rows x #{columns.length} columns"
+  columns.each do |key|
+    if (msg = check key)
+      trouble "#{msg} in Column/Key '#{key}'"
+    end
+  end
   # puts columns.inspect
   # puts data[0].inspect
   return input
@@ -41,13 +59,13 @@ def stats filename
       File.open("#{@try}/Processed/#{table}-#{short}.html", 'w') do |file|
         file.puts "table: <a href=../Raw/#{table}.json>#{table}</a><br>"
         file.puts "column: #{col}<br><pre>"
-        puts "\n\n#{col.inspect}"
+        # puts "\n\n#{col.inspect}"
         dist.keys.sort.each do |key|
           count = dist[key]
           dup = count>1 ? "#{count} x" : ""
-          puts "\t#{dup}\t#{key.inspect}"
+          # puts "\t#{dup}\t#{key.inspect}"
           file.puts "\t#{dup}\t#{key.inspect}"
-          @formulas.puts "#{filename}\t#{col}\t#{key}" if key =~ /^=/
+          @formulas.puts "#{filename}\t#{col}\t#{key}:" if key =~ /^=/
         end
       end
     end
@@ -55,7 +73,7 @@ def stats filename
       if filename =~ /Tier1/
         @materials = dist.keys.sort
       else
-        trouble "Mismatch on keys:\nsurplus: #{(dist.keys.sort - @materials).inspect}\nmissing: #{(@materials - dist.keys.sort).inspect}" unless dist.keys.sort == @materials 
+        trouble "Mismatch on keys:\nsurplus: #{(dist.keys.sort - @materials).inspect}\nmissing: #{(@materials - dist.keys.sort).inspect}" unless (dist.keys.sort == @materials) or (dist.keys.length > 50)
       end
     end
     trouble "Expected singular Material column name" if col =~ /Materials$/
