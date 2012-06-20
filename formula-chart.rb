@@ -59,18 +59,6 @@ def quote string
   "\"#{string.to_s.gsub(/"/,'\"').gsub(/([a-z0-9]|HG|SW|SI)[_ \/]*([A-Z(])/,'\1\n\2')}\""
 end
 
-def dot_table from, table
-  if @tablesWithFormulas[table.to_s] == 1
-    @dot << "#{quote table} [shape=folder fillcolor=white URL=\"#{table}.svg\"]"
-    @dot_index << "#{quote table} [shape=folder fillcolor=white URL=\"#{table}.svg\"]"
-  else
-    @dot << "#{quote table} [shape=folder fillcolor=white fontcolor=gray]"
-    @dot_index << "#{quote table} [shape=folder fillcolor=white fontcolor=gray]"
-  end
-  @dot << "#{quote from} -> #{quote table};"
-  @dot_index << "#{quote @dot_index_table} -> #{quote table};"
-end
-
 @checked_url = {}
 def column_url table, column
   short = column.to_s.gsub /[^A-Za-z0-9]/,''
@@ -107,7 +95,6 @@ def eval str, from, expr
     @functs[f.to_s] = 1
     if f == 'VLOOKUP'
       (key, tab, col, bol) = expr[:args]
-      dot_table succ, tab[:formula]
       [key, col, bol].each  {|arg| eval str, succ, arg}
     else
       [expr[:args]].flatten.each {|arg| eval str, succ, arg}
@@ -116,7 +103,18 @@ def eval str, from, expr
     label = expr[:current] ? "[label=\"@\"]" : ""
     if t=expr[:table]
       @dot << "#{col = quote t+c} [fillcolor=white, label=#{quote c} URL=#{column_url t, c}]"
-      dot_table t+c, t
+      if @tablesWithFormulas[t.to_s] == 1
+        @dot << "#{quote t} [shape=folder fillcolor=white URL=\"#{t}.svg\"]"
+        @dot_index << "#{quote t} [shape=folder fillcolor=white URL=\"#{t}.svg\"]"
+      else
+        @dot << "#{quote t} [shape=folder fillcolor=white fontcolor=gray]"
+        @dot_index << "#{quote t} [shape=folder fillcolor=white fontcolor=gray]"
+      end
+      @dot << "#{quote t+c} -> #{quote t};"
+      unless @dot_index_table == t
+        @dot_index << "#{col = quote t+c} [fillcolor=gold, label=#{quote c} URL=#{column_url t, c}]"
+        @dot_index << "#{quote @dot_index_table} -> #{quote t+c} -> #{quote t};"
+      end
     else
       @dot << "#{col = quote c} [fillcolor=gold URL=#{column_url @dot_index_table, c}]"
     end
