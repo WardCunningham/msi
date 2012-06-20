@@ -94,7 +94,7 @@ def index key, table
   return hash
 end
 
-@try = 'db/6-11-12'
+@try = 'db/6-18-12'
 @formulas = File.open "#{@try}/Processed/formulas.txt", 'w'
 
 Dir.glob "#{@try}/Raw/*.json" do |filename|
