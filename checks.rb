@@ -65,7 +65,7 @@ def stats filename
           dup = count>1 ? "#{count} x" : ""
           # puts "\t#{dup}\t#{key.inspect}"
           file.puts "\t#{dup}\t#{key.inspect}"
-          @formulas.puts "#{filename}\t#{col}\t#{key}:" if key =~ /^=/
+          @formulas.puts "#{filename}\t#{col}\t#{key}" if key =~ /^=/
         end
       end
     end
