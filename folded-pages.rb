@@ -155,6 +155,11 @@ def summary
         field 'Material'
         field 'Total Score'
         field 'Rank'
+        field 'Energy/GHG Emissions Intensity Total'
+        field ' Chemistry Total'
+        field 'Water/Land Intensity Total'
+        field 'Physical Waste Total'
+
       end
     end
     materials.each do |material|
@@ -191,6 +196,14 @@ def content
       end
 
       fold 'chemistry' do
+        record "Chemistry" do
+          table 'Tier1MSISummary' do
+            field 'Acute Toxicity'
+            field 'Chronic Toxicity'
+            field 'Reproductive/Endocrine Disrupter Toxicity'
+            field 'Carcinogenicity '
+          end
+        end
         table 'Tier3MaterialData' do
           field 'Chemistry Exposure Assumptions'
         end
@@ -212,6 +225,36 @@ def content
           field 'GHG Emissions Scoring Drivers Phase 2'
         end
       end
+
+      fold 'water/land' do
+        record "Water/Land Intensity" do
+          table 'Tier1MSISummary' do
+            field 'Water Intensity'
+            field 'Land Intensity'
+          end
+        end
+        table 'Tier3MaterialData' do
+          paragraph 'Water Scoring Drivers:'
+          field 'Water Scoring Drivers Phase 1'
+          field 'Water Scoring Drivers Phase 2'
+          paragraph 'Land Scoring Drivers:'
+          field 'Land Scoring Drivers'
+        end
+      end
+
+      fold 'physical waste' do
+        record "Physical Waste" do
+          table 'Tier1MSISummary' do
+            field 'Recycled/Compostable waste'
+            field 'Municipal Solid Waste'
+            field 'Mineral waste'
+            field 'Hazardous Waste'
+            field 'Industrial waste'
+          end
+        end
+        paragraph 'No physical waste documentation at present.'
+      end
+
     end
   end
 end
