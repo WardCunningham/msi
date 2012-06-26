@@ -112,7 +112,7 @@ def eval str, from, expr
       end
       @dot << "#{quote t+c} -> #{quote t};"
       unless @dot_index_table == t
-        @dot_index << "#{col = quote t+c} [shape=point height=0.2 fillcolor=gold, label=#{quote c} URL=#{column_url t, c}]"
+        @dot_index << "#{col = quote t+c} [shape=point height=0.2 fillcolor=#{c.to_s=~/material/i ? 'white' : 'gold'}, label=#{quote c} URL=#{column_url t, c}]"
         @dot_index << "#{quote @dot_index_table} -> #{quote t+c} -> #{quote t};"
       end
     else
