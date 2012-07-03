@@ -176,7 +176,7 @@ end
 #   parse row['Function'],row['Function Name']
 # end
 
-@try = 'db/6-25-12'
+@try = Dir.glob('db/*-*-*').max_by {|e| File.mtime(e)}
 load("#{@try}/Raw/Tier3Functions.json")['data'].each do |row|
   @formulas[row['Function Name']] = row['Function']
 end

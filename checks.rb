@@ -95,7 +95,7 @@ def index key, table
   return hash
 end
 
-@try = 'db/6-25-12'
+@try = Dir.glob('db/*-*-*').max_by {|e| File.mtime(e)}
 @formulas = File.open "#{@try}/Processed/formulas.txt", 'w'
 
 Dir.glob "#{@try}/Raw/*.json" do |filename|
