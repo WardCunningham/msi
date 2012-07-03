@@ -53,7 +53,7 @@ def stats filename
       dist[code ] += 1
     end
     if dist[""]+dist["<nil>"] == data.length
-      empty << col 
+      empty << col unless col =~ / (Notes|Source)$/
     else
       (db, date, raw, table, sufix) = filename.split /[\/\.]/
       short = col.gsub /[^A-Za-z0-9]/, ''
