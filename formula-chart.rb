@@ -176,7 +176,7 @@ end
 #   parse row['Function'],row['Function Name']
 # end
 
-@try = 'db/6-18-12'
+@try = 'db/6-25-12'
 load("#{@try}/Raw/Tier3Functions.json")['data'].each do |row|
   @formulas[row['Function Name']] = row['Function']
 end

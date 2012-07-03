@@ -6,7 +6,8 @@ def check key
   return 'Trailing Spaces' if key =~ / $/
   return 'Double Spaces' if key =~ /  /
   return 'Leading Spaces' if key =~ /^ /
-  return 'Space After Slash' if key =~ /\/ /
+  return 'No Space After Slash' if key =~ /\/[^ ]/
+  return 'No Space Before Slash' if key =~ /[^ ]\//
   return 'Unexpected Asterisk' if key =~ /^ *\*/
   return 'Inexplicit Single Character' if key =~ /^.$/
   return 'Unexpected ALL-CAPS' unless key =~ /[a-z]/
@@ -94,7 +95,7 @@ def index key, table
   return hash
 end
 
-@try = 'db/6-18-12'
+@try = 'db/6-25-12'
 @formulas = File.open "#{@try}/Processed/formulas.txt", 'w'
 
 Dir.glob "#{@try}/Raw/*.json" do |filename|
