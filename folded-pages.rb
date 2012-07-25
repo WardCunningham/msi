@@ -68,8 +68,12 @@ def name material
 end
 
 def init
-  Dir.glob('try9/*.json') do |filename|
-    (prefix, table, sufix) = filename.split /[\/\.]/
+  @try = Dir.glob('db/*-*-*').max_by {|e| File.mtime(e)}
+  puts "from #{@try}"
+  puts
+
+  Dir.glob("#{@try}/Raw/*.json") do |filename|
+    (pf1, pf2, pf3, table, sufix) = filename.split /[\/\.]/
     @tables[table] = input = load(filename)
     convert! input
     @materials[table] = index input['columns'].first, input if (40..50).include? input['data'].length
