@@ -167,8 +167,8 @@ end
 # content generators
 
 def summary
-  page 'Tier1 MSI Summary' do
-    dataset 'Tier1 MSI Summary' do
+  page 'Materials Summary' do
+    dataset 'Materials Summary' do
       table 'Tier1MSISummary' do
         field 'Material'
         field 'Total Score'
@@ -177,17 +177,19 @@ def summary
         field ' Chemistry Total'
         field 'Water/Land Intensity Total'
         field 'Physical Waste Total'
-
       end
     end
+    paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
     materials.each do |material|
-      paragraph "[[#{name material}]]"
+      rank = @materials['Tier1MSISummary'][material]['Rank']['value']
+      paragraph "[[#{name material}]] ranked #{rank}"
     end
   end
 end
 
 def content
   materials.each do |material|
+    # puts "'#{material}'"
     @material = material
     page name(material) do
       record "Material Summary" do
@@ -195,7 +197,7 @@ def content
           field 'Material'
           field 'Total Score'
           field 'Energy/GHG Emissions Intensity Total'
-          field ' Chemistry Total'
+          field 'Chemistry Total'
           field 'Water/Land Intensity Total'
           field 'Physical Waste Total'
         end
@@ -208,7 +210,7 @@ def content
         field 'Raw Material Factor'
         field 'Data Quality Assessment'
       end
-      table'Tier3Materials' do
+      table'Tier3MaterialData' do
         field 'Material Notes'
         field 'Material Sources'
       end
@@ -277,8 +279,43 @@ def content
   end
 end
 
+def workbook
+  page 'Workbook Summary' do
+    paragraph "These tables have been extracted from the [[Nike MSI Workbook]] through a Visual Basic program."
+    paragraph "Related columns have been collapsed into single columns containing value objects with aditional fields for units, notes and formulas."
+    paragraph "This and related data can be found organized by material in the [[MSI Summary]]."
+    paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
+    paragraph "<h3>Material Tables"
+    @tables.keys.sort.each do |name|
+      input = @tables[name]
+      next unless input['data'].length == 44
+      paragraph "[[#{name}]] #{input['data'].length} rows x #{input['columns'].length} columns"
+    end
+    paragraph "<h3>Other Tables"
+    @tables.keys.sort.each do |name|
+      input = @tables[name]
+      next if input['data'].length == 44
+      paragraph "[[#{name}]] #{input['data'].length} rows x #{input['columns'].length} columns"
+    end
+  end
+  @tables.keys.each do |name|
+    page name do
+      input = @tables[name]
+      data input, name
+      paragraph "Table #{name} as exported from the Nike MSI Excel Workbook."
+      paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
+      paragraph "See [[Workbook Summary]] for other tables."
+      paragraph "<h3>Columns"
+      input['columns'].each do |col|
+        paragraph col
+      end
+    end
+  end
+end
+
 init
 summary
 content
+workbook
 
 puts "\n#{@trouble} trouble"
