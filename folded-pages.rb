@@ -54,7 +54,7 @@ end
 def index key, table
   hash = {}
   table['data'].each do |row|
-    hash[row[key].downcase] = row
+    hash[row[key]] = row
   end
   return hash
 end
