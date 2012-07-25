@@ -80,7 +80,7 @@ def stats filename
     trouble "Expected singular Material column name" if col =~ /Materials$/
     if col =~ /_Formula$/
       trouble "Local file reference" if dist.keys.inject(false){|s,e| s||=!(e=~/C:/).nil?}
-      trouble "Nil or empty formula" if dist['<nil>']+dist['']>0
+      # trouble "Nil or empty formula" if dist['<nil>']+dist['']>0
       trouble "Unexpected quoted operator" if dist.keys.inject(false){|s,e| s||=!(e=~/"</).nil?}
     end
   end
