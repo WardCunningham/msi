@@ -1,6 +1,17 @@
 require 'rubygems'
 require 'json'
 
+@trouble = 0
+@duptrouble = {}
+def trouble message
+  return if @duptrouble[message]
+  puts "\nTrouble #{@trouble += 1}"
+  @duptrouble[message] = 1
+  puts message
+  # puts caller.inspect
+end
+
+
 class Hash
   def my_value
     self['value']
@@ -120,6 +131,8 @@ end
 
 def table name
   @table = @materials[name]
+  @table_name = name
+  # trouble "No record for '#{@material}' in table '#{name}'" if @table[@material].nil?
   yield
 end
 
@@ -141,6 +154,7 @@ end
 def field column
   return @dataset.each {|key,value| value[column] = @table[key][column]||''} if !@dataset.nil?
   row = @table[@material]
+  trouble "No record for '#{@material}' in table '#{@table_name}'" if row.nil?
   return @record[column] = row[column] if !@record.nil?
   value = row.nil? ? "N/A" : row[column].my_value
   paragraph value unless value.empty?
@@ -262,3 +276,5 @@ end
 init
 summary
 content
+
+puts "\n#{@trouble} trouble"
