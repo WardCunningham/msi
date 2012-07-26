@@ -28,6 +28,10 @@ def load filename
   end
   # puts columns.inspect
   # puts data[0].inspect
+  union = {}
+  data.each{|row|row.keys.each{|key|union[key]=1}}
+  keys = union.keys.to_a - columns
+  trouble "fields #{keys.inspect}\nnot in columns #{columns.inspect}" unless keys.length == 0
   return input
 end
 
@@ -74,7 +78,7 @@ def stats filename
       if filename =~ /Tier1/
         @materials = dist.keys.sort
       else
-        trouble "Mismatch on keys:\nsurplus: #{(dist.keys.sort - @materials).inspect}\nmissing: #{(@materials - dist.keys.sort).inspect}" unless (dist.keys.sort == @materials) or (dist.keys.length > 50)
+        # trouble "Mismatch on keys:\nsurplus: #{(dist.keys.sort - @materials).inspect}\nmissing: #{(@materials - dist.keys.sort).inspect}" unless (dist.keys.sort == @materials) or (dist.keys.length > 50)
       end
     end
     trouble "Expected singular Material column name" if col =~ /Materials$/
@@ -84,7 +88,7 @@ def stats filename
       trouble "Unexpected quoted operator" if dist.keys.inject(false){|s,e| s||=!(e=~/"</).nil?}
     end
   end
-  trouble "Empty columns: #{empty.inspect}" if empty.length > 0
+  # trouble "Empty columns: #{empty.inspect}" if empty.length > 0
 end
 
 def index key, table
