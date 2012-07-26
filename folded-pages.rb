@@ -315,7 +315,7 @@ def workbook
   page 'Workbook Summary' do
     paragraph "These tables have been extracted from the [[Nike MSI Workbook]] through a Visual Basic program."
     paragraph "Related columns have been collapsed into single columns containing value objects with aditional fields for units, notes and formulas."
-    paragraph "This and related data can be found organized by material in the [[MSI Summary]]."
+    paragraph "This and related data can be found organized by material in the [[Materials Summary]]."
     paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
     paragraph "<h3>Material Tables"
     @tables.keys.sort.each do |name|
