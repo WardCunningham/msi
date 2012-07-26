@@ -102,7 +102,7 @@ end
 # journal actions
 
 def create title
-  {'type' => 'create', 'id' => random, 'item' => {'title' => title}}
+  {'type' => 'create', 'id' => random, 'item' => {'title' => title}, 'date' => Time.now.to_i*1000}
 end
 
 # story emiters
