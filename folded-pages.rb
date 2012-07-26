@@ -38,16 +38,28 @@ def load filename
   JSON.parse(File.read(filename))
 end
 
-def convert! table
-  formulas = table['columns'].select{|e|e =~ /_Formula/}
-  table['data'] = table['data'].collect do |row|
-    formulas.each do |formula|
-      column = $1 if formula =~ /^(.*?)_/
-      row[column] = {'value' => row[column], 'formula' => row[formula]}
+def convert! name, table
+  sufix = 'Formula'
+  targets = {}
+  columns = table['columns']
+  columns.each do |col|
+    if col =~ /(.+?)_#{sufix}/
+      candidates = columns.select {|e| e==$1}
+      if candidates.length == 1
+        targets[col] = candidates.first
+      else
+        trouble "Can't find column for #{col} in #{name}"
+      end
     end
-    row.reject {|k,v| formulas.include? k}
   end
-  table['columns'] = table['columns'] - formulas
+  puts [name, targets].inspect
+  table['data'] = table['data'].collect do |row|
+    targets.each do |formula, target|
+      row[target] = {'value' => row[target], sufix.downcase => row[formula]}
+    end
+    row.reject {|k,v| targets.include? k}
+  end
+  table['columns'] = table['columns'] - targets.keys
 end
 
 def index key, table
@@ -82,7 +94,7 @@ def init
   Dir.glob("#{@try}/Raw/*.json") do |filename|
     (pf1, pf2, pf3, table, sufix) = filename.split /[\/\.]/
     @tables[table] = input = load(filename)
-    convert! input
+    convert! table, input
     @materials[table] = index input['columns'].first, input if (40..50).include? input['data'].length
     puts "#{table.ljust 30} #{input['data'].length} rows x #{input['columns'].length} columns (#{input['columns'].first})"
   end
@@ -338,8 +350,27 @@ def workbook
       paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
       paragraph "See [[Workbook Summary]] for other tables."
       paragraph "<h3>Columns"
+      paragraph "For each column we list the most frequent values and the count of various other values (denoted as ...)"
       input['columns'].each do |col|
-        paragraph col
+        dist = Hash.new(0)
+        input['data'].each do |dat|
+          code = dat[col].nil? ? "<nil>" : dat[col].my_value
+          dist[code] += 1
+        end
+        report = dist.keys.select{|a|dist[a]>1}.sort{|a,b|dist[b]<=>dist[a]}.collect do |key|
+          count = dist[key]
+          dup = count>1 ? "#{count}x" : ""
+          "#{dup}#{key.inspect}"
+        end
+        various = dist.keys.select{|a|dist[a]==1}
+        if various.length > 0
+          if various.length > 4
+            report << "#{various.length}x ..."
+          else
+            report << various.collect{|key|key.inspect}
+          end
+        end
+        paragraph "<b>#{col}</b><br>#{report.join ', '}"
       end
     end
   end
