@@ -52,7 +52,6 @@ def convert! name, table
       end
     end
   end
-  puts [name, targets].inspect
   table['data'] = table['data'].collect do |row|
     targets.each do |formula, target|
       row[target] = {'value' => row[target], sufix.downcase => row[formula]}
