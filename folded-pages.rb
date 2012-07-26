@@ -11,7 +11,6 @@ def trouble message
   # puts caller.inspect
 end
 
-
 class Hash
   def my_value
     self['value']
@@ -107,6 +106,15 @@ def url text
   text.gsub(/(http:\/\/)?([a-zA-Z0-9._-]+?\.(net|com|org|edu)(\/[^ )]+)?)/,'[http:\/\/\2 \2]')
 end
 
+def domain text
+  text.gsub(/((https?:\/\/)(www\.)?([a-zA-Z0-9._-]+?\.(net|com|org|edu|us|cn|dk|au))(\/[^ );]*)?)/,'[\1 \4]')
+end
+
+def aspect text
+  aspects = 'Geographic location|Data sources|Production method|Kg raw material required for 1 kg yarn/subcomponent|Data Quality Assessment|Phase 1|Phase 2'
+  text.gsub /(#{aspects}:)/, '<b>\1</b>'
+end
+
 # journal actions
 
 def create title
@@ -169,7 +177,8 @@ def field column
   trouble "No record for '#{@material}' in table '#{@table_name}'" if row.nil?
   return @record[column] = row[column] if !@record.nil?
   value = row.nil? ? "N/A" : row[column].my_value
-  paragraph value unless value.empty?
+  return if value.empty?
+  paragraph domain aspect value
 end
 
 # content generators
