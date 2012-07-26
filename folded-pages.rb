@@ -67,6 +67,14 @@ def name material
   @materials['Tier1MSISummary'][material]['Material']
 end
 
+def rank material
+  @materials['Tier1MSISummary'][material]['Rank'].my_value
+end
+
+def score material
+  @materials['Tier1MSISummary'][material]['Total Score'].my_value
+end
+
 def init
   @try = Dir.glob('db/*-*-*').max_by {|e| File.mtime(e)}
   puts "from #{@try}"
@@ -179,10 +187,24 @@ def summary
         field 'Physical Waste Total'
       end
     end
+    paragraph "We summarize the materials both as a dataset and as links to data sheets for each materials."
     paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
+    paragraph "Try visualizing with the [[Material Scatter Chart]]."
+    paragraph "See also [[Materials by Rank]]."
+    paragraph "<h3>Materials Alphabetically"
     materials.each do |material|
-      rank = @materials['Tier1MSISummary'][material]['Rank']['value']
-      paragraph "[[#{name material}]] ranked #{rank}"
+      paragraph "[[#{name material}]] ranked #{rank material}"
+    end
+  end
+  page 'Materials by Rank' do
+    paragraph 'We order the materials by their rank based on total score.'
+    paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
+    paragraph 'See also [[Materials Summary]] in alphabetical order.'
+    paragraph '<h3>Materials by Rank'
+    rank = 0
+    materials.sort{|a,b|rank(a).to_i <=> rank(b).to_i}.each do |material|
+      rank += 1
+      paragraph "#{rank}. [[#{name material}]] scored #{(score(material).to_f*10).round/10.0}"
     end
   end
 end
@@ -214,6 +236,7 @@ def content
         field 'Material Notes'
         field 'Material Sources'
       end
+      paragraph 'Try visualizing with the [[D3 Radar Chart]].'
 
       fold 'chemistry' do
         record "Chemistry" do
