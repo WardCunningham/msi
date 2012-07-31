@@ -147,6 +147,10 @@ def fold text
   yield
 end
 
+def method lines
+  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => random()}
+end
+
 def page title
   @story = []
   yield
@@ -182,12 +186,26 @@ def dataset title
   @dataset = nil
 end
 
+def total result
+  @calculate = []
+  yield
+  @calculate << "SUM #{result} Total"
+  method @calculate
+  @calculate = nil
+end
+
 def field column
-  return @dataset.each {|key,value| value[column] = @table[key][column]||''} if !@dataset.nil?
+  # handle dataset
+  return @dataset.each {|key,value| value[column] = @table[key][column]||''} unless @dataset.nil?
   row = @table[@material]
   trouble "No record for '#{@material}' in table '#{@table_name}'" if row.nil?
-  return @record[column] = row[column] if !@record.nil?
+  # handle record
+  return @record[column] = row[column] unless @record.nil?
   value = row.nil? ? "N/A" : row[column].my_value
+  # puts [value, column, row].inspect if 'Acrylic fabric' == name(@material) && column == 'Energy Intensity'
+  # handle calculate
+  return @calculate << "#{value} #{column}" unless @calculate.nil?
+  # handle paragraph
   return if value.empty?
   paragraph domain aspect value
 end
@@ -225,9 +243,9 @@ def summary
         field 'Material'
         field 'Total Score'
         field 'Rank'
-        field 'Energy/GHG Emissions Intensity Total'
-        field ' Chemistry Total'
-        field 'Water/Land Intensity Total'
+        field 'Energy / GHG Emissions Intensity Total'
+        field 'Chemistry Total'
+        field 'Water / Land Intensity Total'
         field 'Physical Waste Total'
       end
     end
@@ -262,9 +280,9 @@ def content
         table 'Tier1MSISummary' do
           field 'Material'
           field 'Total Score'
-          field 'Energy/GHG Emissions Intensity Total'
+          field 'Energy / GHG Emissions Intensity Total'
           field 'Chemistry Total'
-          field 'Water/Land Intensity Total'
+          field 'Water / Land Intensity Total'
           field 'Physical Waste Total'
         end
       end
@@ -283,12 +301,12 @@ def content
       paragraph 'Try visualizing with the [[D3 Radar Chart]].'
 
       fold 'chemistry' do
-        record "Chemistry" do
+        total "Chemistry" do
           table 'Tier1MSISummary' do
             field 'Acute Toxicity'
             field 'Chronic Toxicity'
-            field 'Reproductive/Endocrine Disrupter Toxicity'
-            field 'Carcinogenicity '
+            field 'Reproductive / Endocrine Disrupter Toxicity'
+            field 'Carcinogenicity'
           end
         end
         table 'Tier3MaterialData' do
@@ -297,8 +315,8 @@ def content
       end
 
       fold 'energy/ghg' do
-        record "Energy/GHG Intensity" do
-          table 'Tier1MSIRawData' do
+        total "Energy / GHG Emissions Intensity" do
+          table 'Tier1MSISummary' do
             field 'Energy Intensity'
             field 'GHG Emissions Intensity'
           end
@@ -314,7 +332,7 @@ def content
       end
 
       fold 'water/land' do
-        record "Water/Land Intensity" do
+        total "Water / Land Intensity" do
           table 'Tier1MSISummary' do
             field 'Water Intensity'
             field 'Land Intensity'
@@ -330,13 +348,13 @@ def content
       end
 
       fold 'physical waste' do
-        record "Physical Waste" do
+        total "Physical Waste" do
           table 'Tier1MSISummary' do
-            field 'Recycled/Compostable waste'
+            field 'Recyclable / Compostable Waste'
             field 'Municipal Solid Waste'
-            field 'Mineral waste'
+            field 'Mineral Waste'
             field 'Hazardous Waste'
-            field 'Industrial waste'
+            field 'Industrial Waste'
           end
         end
         paragraph 'No physical waste documentation at present.'
