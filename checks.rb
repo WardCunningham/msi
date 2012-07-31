@@ -58,20 +58,19 @@ def stats filename
     end
     if dist[""]+dist["<nil>"] == data.length
       empty << col unless col =~ / (Notes|Source)$/
-    else
-      (db, date, raw, table, sufix) = filename.split /[\/\.]/
-      short = col.gsub /[^A-Za-z0-9]/, ''
-      File.open("#{@try}/Processed/#{table}-#{short}.html", 'w') do |file|
-        file.puts "table: <a href=../Raw/#{table}.json>#{table}</a><br>"
-        file.puts "column: #{col}<br><pre>"
-        # puts "\n\n#{col.inspect}"
-        dist.keys.sort.each do |key|
-          count = dist[key]
-          dup = count>1 ? "#{count} x" : ""
-          # puts "\t#{dup}\t#{key.inspect}"
-          file.puts "\t#{dup}\t#{key.inspect}"
-          @formulas.puts "#{filename}\t#{col}\t#{key}" if key =~ /^=/
-        end
+    end
+    (db, date, raw, table, sufix) = filename.split /[\/\.]/
+    short = col.gsub /[^A-Za-z0-9]/, ''
+    File.open("#{@try}/Processed/#{table}-#{short}.html", 'w') do |file|
+      file.puts "table: <a href=../Raw/#{table}.json>#{table}</a><br>"
+      file.puts "column: #{col}<br><pre>"
+      # puts "\n\n#{col.inspect}"
+      dist.keys.sort.each do |key|
+        count = dist[key]
+        dup = count>1 ? "#{count} x" : ""
+        # puts "\t#{dup}\t#{key.inspect}"
+        file.puts "\t#{dup}\t#{key.inspect}"
+        @formulas.puts "#{filename}\t#{col}\t#{key}" if key =~ /^=/
       end
     end
     if col =~ /^Materials?$/
