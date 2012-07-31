@@ -192,6 +192,30 @@ def field column
   paragraph domain aspect value
 end
 
+# content utilities
+
+def frequent input, col
+  dist = Hash.new(0)
+  input['data'].each do |dat|
+    code = dat[col].nil? ? "<nil>" : dat[col].my_value
+    dist[code] += 1
+  end
+  report = dist.keys.select{|a|dist[a]>1}.sort{|a,b|dist[b]<=>dist[a]}.collect do |key|
+    count = dist[key]
+    dup = count>1 ? "#{count}x" : ""
+    "#{dup}#{key.inspect}"
+  end
+  various = dist.keys.select{|a|dist[a]==1}
+  if various.length > 0
+    if various.length > 4
+      report << "#{various.length}x ..."
+    else
+      report << various.collect{|key|key.inspect}
+    end
+  end
+  report
+end
+
 # content generators
 
 def summary
@@ -351,24 +375,7 @@ def workbook
       paragraph "<h3>Columns"
       paragraph "For each column we list the most frequent values and the count of various other values (denoted as ...)"
       input['columns'].each do |col|
-        dist = Hash.new(0)
-        input['data'].each do |dat|
-          code = dat[col].nil? ? "<nil>" : dat[col].my_value
-          dist[code] += 1
-        end
-        report = dist.keys.select{|a|dist[a]>1}.sort{|a,b|dist[b]<=>dist[a]}.collect do |key|
-          count = dist[key]
-          dup = count>1 ? "#{count}x" : ""
-          "#{dup}#{key.inspect}"
-        end
-        various = dist.keys.select{|a|dist[a]==1}
-        if various.length > 0
-          if various.length > 4
-            report << "#{various.length}x ..."
-          else
-            report << various.collect{|key|key.inspect}
-          end
-        end
+        report = frequent input, col
         paragraph "<b>#{col}</b><br>#{report.join ', '}"
       end
     end
