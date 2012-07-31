@@ -253,9 +253,13 @@ def summary
     paragraph "From run of #{Time.now.strftime '%m-%d %H:%M'}<br>Data labeled #{@try}."
     paragraph "Try visualizing with the [[Material Scatter Chart]]."
     paragraph "See also [[Materials by Rank]]."
-    paragraph "<h3>Materials Alphabetically"
+    paragraph "<h3>Fabrics Alphabetically"
     materials.each do |material|
-      paragraph "[[#{name material}]] ranked #{rank material}"
+      paragraph "[[#{name material}]] ranked #{rank material}" if name(material) =~ / fabric/
+    end
+    paragraph "<h3>Other Materials Alphabetically"
+    materials.each do |material|
+      paragraph "[[#{name material}]] ranked #{rank material}" unless name(material) =~ / fabric/
     end
   end
   page 'Materials by Rank' do
