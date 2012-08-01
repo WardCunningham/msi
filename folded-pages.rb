@@ -189,7 +189,7 @@ end
 def total result
   @calculate = []
   yield
-  @calculate << "SUM #{result} Total"
+  @calculate << "SUM #{result}"
   method @calculate
   @calculate = nil
 end
@@ -208,6 +208,10 @@ def field column
   # handle paragraph
   return if value.empty?
   paragraph domain aspect value
+end
+
+def recall key
+  @calculate << key
 end
 
 # content utilities
@@ -305,7 +309,7 @@ def content
       paragraph 'Try visualizing with the [[D3 Radar Chart]].'
 
       fold 'chemistry' do
-        total "Chemistry" do
+        total 'Chemistry Total' do
           table 'Tier1MSISummary' do
             field 'Acute Toxicity'
             field 'Chronic Toxicity'
@@ -319,7 +323,7 @@ def content
       end
 
       fold 'energy/ghg' do
-        total "Energy / GHG Emissions Intensity" do
+        total 'Energy / GHG Emissions Intensity Total' do
           table 'Tier1MSISummary' do
             field 'Energy Intensity'
             field 'GHG Emissions Intensity'
@@ -336,7 +340,7 @@ def content
       end
 
       fold 'water/land' do
-        total "Water / Land Intensity" do
+        total 'Water / Land Intensity Total' do
           table 'Tier1MSISummary' do
             field 'Water Intensity'
             field 'Land Intensity'
@@ -352,7 +356,7 @@ def content
       end
 
       fold 'physical waste' do
-        total "Physical Waste" do
+        total 'Physical Waste Total' do
           table 'Tier1MSISummary' do
             field 'Recyclable / Compostable Waste'
             field 'Municipal Solid Waste'
@@ -364,6 +368,14 @@ def content
         paragraph 'No physical waste documentation at present.'
       end
 
+      fold 'totals' do
+        total 'Total Score' do
+          recall 'Chemistry Total'
+          recall 'Energy / GHG Emissions Intensity Total'
+          recall 'Water / Land Intensity Total'
+          recall 'Physical Waste Total'
+        end
+      end
     end
   end
 end
