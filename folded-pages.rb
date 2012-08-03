@@ -29,6 +29,10 @@ class NilClass
   end
 end
 
+def empty string
+  string.strip == ''
+end
+
 # Load json from excel
 
 @tables = {}
@@ -186,10 +190,10 @@ def dataset title
   @dataset = nil
 end
 
-def total result
+def total result, op='SUM'
   @calculate = []
   yield
-  @calculate << "SUM #{result}"
+  @calculate << "#{op} #{result}"
   method @calculate
   @calculate = nil
 end
@@ -212,6 +216,15 @@ end
 
 def recall key
   @calculate << key
+end
+
+def chemistry key, phase
+  chemistryData = @tables['Tier3ChemistryData']['data']
+  chemistryData.select{|row|row['Material']==name(@material)&&row['Phase']==phase}.each do |row|
+    value = row[key].my_value
+    next if empty(value)
+    @calculate << "#{value} #{row['Substance']}"
+  end
 end
 
 # content utilities
@@ -309,6 +322,32 @@ def content
       paragraph 'Try visualizing with the [[D3 Radar Chart]].'
 
       fold 'chemistry' do
+
+        paragraph 'Acute Toxicity (average of phase 1 & 2 minimum scores.)'
+        total 'Acute Toxicity (phase 1 min)', 'MIN' do
+          chemistry 'Weighted Acute', '1'
+        end
+        total 'Acute Toxicity (phase 2 min)', 'MIN' do
+          chemistry 'Weighted Acute', '2'
+        end
+        total 'Acute Toxicity', 'AVG' do
+          recall 'Acute Toxicity (phase 1 min)'
+          recall 'Acute Toxicity (phase 2 min)'
+        end
+
+        paragraph 'Chronic Toxicity (average of phase 1 & 2 minimum scores.)'
+        total 'Chronic Toxicity (phase 1 min)', 'MIN' do
+          chemistry 'Weighted Chronic', '1'
+        end
+        total 'Chronic Toxicity (phase 2 min)', 'MIN' do
+          chemistry 'Weighted Chronic', '2'
+        end
+        total 'Chronic Toxicity', 'AVG' do
+          recall 'Chronic Toxicity (phase 1 min)'
+          recall 'Chronic Toxicity (phase 2 min)'
+        end
+
+        paragraph 'Chemistry Total'
         total 'Chemistry Total' do
           table 'Tier1MSISummary' do
             field 'Acute Toxicity'
