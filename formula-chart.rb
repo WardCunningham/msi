@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'parser2'
 require 'json'
+require 'pp'
 
 def load filename
   text = File.read(filename)
@@ -88,7 +89,12 @@ def eval str, from, expr
     eval str, from, expr[:left]
     eval str, from, expr[:right]
   when f=expr[:function]
-    tip = "\"#{str[leftpos(expr)..rightpos(expr)].gsub /"/, '\"'}\""
+    tip = String.new str
+    tip = tip[0..(rightpos(expr)+1)]
+    [expr[:args]].flatten.sort{|a,b|leftpos(a)<=>leftpos(b)}.each {|arg| tip[leftpos(arg)..rightpos(arg)]="#{arg[:function]}(...)" if arg[:function]}
+    tip = tip[leftpos(expr)..rightpos(expr)]
+    # puts "  #{tip}"
+    tip = "\"#{tip.gsub /"/, '\"'}\""
     succ = "#{from}-#{f}"
     @dot << "#{quote succ} [shape=none fillcolor=lightgray label=#{quote f} tooltip=#{tip}]"
     @dot << "#{quote from} -> #{quote succ};"
@@ -166,10 +172,12 @@ end
 # parse "=IF(Tier1Raw!H11<0,15,IF(Tier1Raw!H11>17,(15*(1-(-0.0000323419744468201*Tier1Raw!H11^2 + 0.00646102566117069*Tier1Raw!H11 + 0.673902585769844))),(15*(1-(-0.00143091294220916*Tier1Raw!H11^2 + 0.0705541152858646*Tier1Raw!H11)))))"
 
 # parse "=IFERROR(SUM(IF(([@TransportSenario]=Tier3TransportSenario[Scenario]),INDIRECT(\"Tier3TransportSenario[\"&[@ProcessType]&\"]\"))),0)"
+# parse "=IFERROR(VLOOKUP([@[Textile Location]],Tier3HydroSources,COLUMN(Tier3HydroSources[[#Headers],[% Renewable (no big hydro)]]),FALSE),\"\")"
 
 # @dot = []
-# parse "=IFERROR(VLOOKUP([@[Textile Location]],Tier3HydroSources,COLUMN(Tier3HydroSources[[#Headers],[% Renewable (no big hydro)]]),FALSE),\"\")"
-# @dot.each {|e| puts e}
+# @dot_index = []
+# parse '=IF(SUM(IF([@Material]=Tier3OtherPhysicalWaste[Material],Tier3OtherPhysicalWaste[Municipal Solid Waste]))>0,SUM(IF([@Material]=Tier3OtherPhysicalWaste[Material],Tier3OtherPhysicalWaste[Municipal Solid Waste]))/100,IF(Tier1MSIRawData[@[Municipal Solid Waste]]>1299,(1-(2.15201822243368E-14*Tier1MSIRawData[@[Municipal Solid Waste]]^3 - 3.35187094611029E-10*Tier1MSIRawData[@[Municipal Solid Waste]]^2 + 6.30715025219735E-06*Tier1MSIRawData[@[Municipal Solid Waste]] + 0.892308905188084)),(1-(0.000049352245*Tier1MSIRawData[@[Municipal Solid Waste]] + 0.83977042))))*MSWWeight'
+# @dot.each {|e| puts; puts e}
 # exit
 
 # load("try8/Tier3Functions.json")['data'].each do |row|
