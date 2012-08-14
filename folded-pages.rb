@@ -292,6 +292,24 @@ def summary
   end
 end
 
+def chemistry_scores (indicator, short)
+  paragraph "<b>#{indicator}"
+  paragraph "We choose the minimum (worst case) #{indicator} for phase 1 substances as one driver for the score."
+  total "#{indicator} (phase 1 min)", 'MIN' do
+    chemistry "Weighted #{short}", '1'
+  end
+  paragraph "And we choose the minimum (worst case) #{indicator} for phase 2 substances as the other driver."
+  total "#{indicator} (phase 2 min)", 'MIN' do
+    chemistry "Weighted #{short}", '2'
+  end
+  paragraph "We average the drivers from both phases to contribute a single #{indicator} metric."
+  total indicator, 'AVG' do
+    recall "#{indicator} (phase 1 min)"
+    recall "#{indicator} (phase 2 min)"
+  end
+
+end
+
 def content
   materials.each do |material|
     # puts "'#{material}'"
@@ -314,8 +332,6 @@ def content
         field 'Production Method'
         field 'Raw Material Factor'
         field 'Data Quality Assessment'
-      end
-      table'Tier3MaterialData' do
         field 'Material Notes'
         field 'Material Sources'
       end
@@ -323,31 +339,7 @@ def content
 
       fold 'chemistry' do
 
-        paragraph 'Acute Toxicity (average of phase 1 & 2 minimum scores.)'
-        total 'Acute Toxicity (phase 1 min)', 'MIN' do
-          chemistry 'Weighted Acute', '1'
-        end
-        total 'Acute Toxicity (phase 2 min)', 'MIN' do
-          chemistry 'Weighted Acute', '2'
-        end
-        total 'Acute Toxicity', 'AVG' do
-          recall 'Acute Toxicity (phase 1 min)'
-          recall 'Acute Toxicity (phase 2 min)'
-        end
-
-        paragraph 'Chronic Toxicity (average of phase 1 & 2 minimum scores.)'
-        total 'Chronic Toxicity (phase 1 min)', 'MIN' do
-          chemistry 'Weighted Chronic', '1'
-        end
-        total 'Chronic Toxicity (phase 2 min)', 'MIN' do
-          chemistry 'Weighted Chronic', '2'
-        end
-        total 'Chronic Toxicity', 'AVG' do
-          recall 'Chronic Toxicity (phase 1 min)'
-          recall 'Chronic Toxicity (phase 2 min)'
-        end
-
-        paragraph 'Chemistry Total'
+        paragraph 'We start with the Chemistry Total as computed in the excel workbook. We will be checking these with the client-side computations as we go along'
         total 'Chemistry Total' do
           table 'Tier1MSISummary' do
             field 'Acute Toxicity'
@@ -356,6 +348,24 @@ def content
             field 'Carcinogenicity'
           end
         end
+
+        paragraph 'Now we compute four toxicity and carcinogenicity chemistry factors for materials from substances employed in their manufacture. These are allocated to and talled separately for each phase. See [[Manufacturing Phases]].'
+
+        chemistry_scores 'Acute Toxicity', 'Acute'
+        chemistry_scores 'Chronic Toxicity', 'Chronic'
+        chemistry_scores 'Carcinogenicity', 'carcinogen'
+        chemistry_scores 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
+
+        paragraph '<b>Chemistry Total'
+        total 'Chemistry Total' do
+          table 'Tier1MSISummary' do
+            recall 'Acute Toxicity'
+            recall 'Chronic Toxicity'
+            recall 'Reproductive / Endocrine Disrupter Toxicity'
+            recall 'Carcinogenicity'
+          end
+        end
+
         table 'Tier3MaterialData' do
           field 'Chemistry Exposure Assumptions'
         end
