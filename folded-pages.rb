@@ -132,8 +132,8 @@ end
 
 # journal actions
 
-def create title
-  {'type' => 'create', 'id' => random, 'item' => {'title' => title}, 'date' => Time.now.to_i*1000}
+def create title, story
+  {'type' => 'create', 'id' => random, 'item' => {'title' => title, 'story' => story}, 'date' => Time.now.to_i*1000}
 end
 
 # story emiters
@@ -158,8 +158,19 @@ end
 def page title
   @story = []
   yield
-  page = {'title' => title, 'story' => @story, 'journal' => [create(title)]}
-  File.open("../pages/#{slug(title)}", 'w') do |file|
+  path = "../pages/#{slug(title)}"
+  action = create title, @story
+  begin
+    # raise "skip history as if there were none"
+    page = JSON.parse File.read(path)
+    puts page.keys.inspect
+    page['story'] = @story
+    page['journal'] ||= []
+    page['journal'] << action
+  rescue
+    page = {'title' => title, 'story' => @story, 'journal' => [action]}
+  end
+  File.open(path, 'w') do |file|
     file.write JSON.pretty_generate(page)
   end
 end
