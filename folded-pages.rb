@@ -11,36 +11,10 @@ def trouble message
   # puts caller.inspect
 end
 
-class Hash
-  def my_value
-    self['value']
-  end
-end
-
-class String
-  def my_value
-    self
-  end
-end
-
-class NilClass
-  def my_value
-    ''
-  end
-end
-
-def empty string
-  string.strip == ''
-end
-
-# Load json from excel
+# load json from excel -- methods here reflect source file and content organization
 
 @tables = {}
 @materials = {}
-
-def load filename
-  JSON.parse(File.read(filename))
-end
 
 def convert! name, table
   sufix = 'Formula'
@@ -73,6 +47,42 @@ def index key, table
   return hash
 end
 
+def load
+  @try = Dir.glob('db/*-*-*').max_by {|e| File.mtime(e)}
+  puts "from #{@try}"
+  puts
+
+  Dir.glob("#{@try}/Raw/*.json") do |filename|
+    (pf1, pf2, pf3, table, sufix) = filename.split /[\/\.]/
+    @tables[table] = input = JSON.parse(File.read(filename))
+    convert! table, input
+    @materials[table] = index input['columns'].first, input if (40..50).include? input['data'].length
+    puts "#{table.ljust 30} #{input['data'].length} rows x #{input['columns'].length} columns (#{input['columns'].first})"
+  end
+end
+
+class Hash
+  def my_value
+    self['value']
+  end
+end
+
+class String
+  def my_value
+    self
+  end
+end
+
+class NilClass
+  def my_value
+    ''
+  end
+end
+
+def empty string
+  string.strip == ''
+end
+
 def materials
   @materials['Tier1MSISummary'].keys.sort
 end
@@ -89,23 +99,18 @@ def score material
   @materials['Tier1MSISummary'][material]['Total Score'].my_value
 end
 
-def init
-  @try = Dir.glob('db/*-*-*').max_by {|e| File.mtime(e)}
-  puts "from #{@try}"
-  puts
+# wiki page and components -- methods here are named after wiki json elements
 
-  Dir.glob("#{@try}/Raw/*.json") do |filename|
-    (pf1, pf2, pf3, table, sufix) = filename.split /[\/\.]/
-    @tables[table] = input = load(filename)
-    convert! table, input
-    @materials[table] = index input['columns'].first, input if (40..50).include? input['data'].length
-    puts "#{table.ljust 30} #{input['data'].length} rows x #{input['columns'].length} columns (#{input['columns'].first})"
-  end
+def bold text
+  aspects = 'Geographic location|Data sources|Production method|Kg raw material required for 1 kg yarn/subcomponent|Data Quality Assessment|Phase 1|Phase 2'
+  text.gsub /(#{aspects}:)/, '<b>\1</b>'
 end
 
-# wiki utilities
+def external text
+  text.gsub(/((https?:\/\/)(www\.)?([a-zA-Z0-9._-]+?\.(net|com|org|edu|us|cn|dk|au))(\/[^ );]*)?)/,'[\1 \4]')
+end
 
-def random
+def guid
   (1..16).collect {(rand*16).floor.to_s(16)}.join ''
 end
 
@@ -113,46 +118,25 @@ def slug title
   title.gsub(/\s/, '-').gsub(/[^A-Za-z0-9-]/, '').downcase()
 end
 
-def clean text
-  text.gsub(/’/,"'")
-end
-
-def url text
-  text.gsub(/(http:\/\/)?([a-zA-Z0-9._-]+?\.(net|com|org|edu)(\/[^ )]+)?)/,'[http:\/\/\2 \2]')
-end
-
-def domain text
-  text.gsub(/((https?:\/\/)(www\.)?([a-zA-Z0-9._-]+?\.(net|com|org|edu|us|cn|dk|au))(\/[^ );]*)?)/,'[\1 \4]')
-end
-
-def aspect text
-  aspects = 'Geographic location|Data sources|Production method|Kg raw material required for 1 kg yarn/subcomponent|Data Quality Assessment|Phase 1|Phase 2'
-  text.gsub /(#{aspects}:)/, '<b>\1</b>'
-end
-
-# journal actions
-
 def create title, story
-  {'type' => 'create', 'id' => random, 'item' => {'title' => title, 'story' => story}, 'date' => Time.now.to_i*1000}
+  {'type' => 'create', 'id' => guid, 'item' => {'title' => title, 'story' => story}, 'date' => Time.now.to_i*1000}
 end
-
-# story emiters
 
 def paragraph text
-  @story << {'type' => 'paragraph', 'text' => text, 'id' => random()}
+  @story << {'type' => 'paragraph', 'text' => text, 'id' => guid}
 end
 
 def data table, caption
-  @story << {'type' => 'data', 'text' => caption, 'columns' => table['columns'], 'data' => table['data'], 'id' => random()}
+  @story << {'type' => 'data', 'text' => caption, 'columns' => table['columns'], 'data' => table['data'], 'id' => guid}
 end
 
 def fold text
-  @story << {'type' => 'pagefold', 'text' => text, 'id' => random()}
+  @story << {'type' => 'pagefold', 'text' => text, 'id' => guid}
   yield
 end
 
 def method lines
-  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => random()}
+  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid}
 end
 
 def page title
@@ -174,7 +158,7 @@ def page title
   end
 end
 
-# custom emiters
+# domain lanuage emitters -- methods here are terms used in the content description language
 
 @record = nil
 
@@ -221,14 +205,38 @@ def field column
   return @calculate << "#{value} #{column}" unless @calculate.nil?
   # handle paragraph
   return if value.empty?
-  paragraph domain aspect value
+  paragraph external bold value
 end
 
 def recall key
   @calculate << key
 end
 
-def substance_score row, category
+# content interpreters -- methods here have noun-phrase names
+
+def table_column_values table, col
+  dist = Hash.new(0)
+  table['data'].each do |dat|
+    code = dat[col].nil? ? "<nil>" : dat[col].my_value
+    dist[code] += 1
+  end
+  report = dist.keys.select{|a|dist[a]>1}.sort{|a,b|dist[b]<=>dist[a]}.collect do |key|
+    count = dist[key]
+    dup = count>1 ? "#{count}x" : ""
+    "#{dup}#{key.inspect}"
+  end
+  various = dist.keys.select{|a|dist[a]==1}
+  if various.length > 0
+    if various.length > 4
+      report << "#{various.length}x ..."
+    else
+      report << various.collect{|key|key.inspect}
+    end
+  end
+  report
+end
+
+def chemistry_substance row, category
 
   (short_category, long_category) = case category
   	when /Acute/i then ['Acute', 'Acute Toxicity']
@@ -254,43 +262,40 @@ def substance_score row, category
   method info
 end
 
-def chemistry key, phase
+def chemistry_phase key, phase
   chemistryData = @tables['Tier3ChemistryData']['data']
   chemistryData.select{|row|row['Material']==name(@material)&&row['Phase']==phase}.each do |row|
     value = row[key].my_value
     next if empty(value)
-    substance_score row, key
+    chemistry_substance row, key
     @calculate << "#{value} #{row['Substance']}"
   end
 end
 
-# content utilities
-
-def frequent input, col
-  dist = Hash.new(0)
-  input['data'].each do |dat|
-    code = dat[col].nil? ? "<nil>" : dat[col].my_value
-    dist[code] += 1
+def chemistry_toxicity indicator, short
+  paragraph "<b>#{indicator}"
+  paragraph "We enumerate the stubstances that have an impact on #{indicator} in phase 1 processing. Later we will choose the worst case phase 1 driver. See [[Why Phases and Drivers]]."
+  total "#{indicator} (phase 1 min)", 'MINIMUM' do
+    chemistry_phase "Weighted #{short}", '1'
+    paragraph "We choose the minimum (worst case) #{indicator} for phase 1 substances as one driver for the score."
   end
-  report = dist.keys.select{|a|dist[a]>1}.sort{|a,b|dist[b]<=>dist[a]}.collect do |key|
-    count = dist[key]
-    dup = count>1 ? "#{count}x" : ""
-    "#{dup}#{key.inspect}"
+  paragraph "This completes the phase 1 #{indicator} calculation."
+  paragraph "We enumerate the stubstances that have an impact on #{indicator} in phase 2 processing. Later we will choose the worst case phase 2 driver. See [[Why Phases and Drivers]]."
+  total "#{indicator} (phase 2 min)", 'MINIMUM' do
+    chemistry_phase "Weighted #{short}", '2'
+    paragraph "And we choose the minimum (worst case) #{indicator} for phase 2 substances as the other driver."
   end
-  various = dist.keys.select{|a|dist[a]==1}
-  if various.length > 0
-    if various.length > 4
-      report << "#{various.length}x ..."
-    else
-      report << various.collect{|key|key.inspect}
-    end
+  paragraph "We average the drivers from both phases to contribute a single #{indicator} metric."
+  total indicator, 'AVERAGE' do
+    recall "#{indicator} (phase 1 min)"
+    recall "#{indicator} (phase 2 min)"
   end
-  report
+  paragraph "This completes the #{indicator} score calculation. We'll average this with other indicators at the end of the chemistry section."
 end
 
-# content generators
+# page generators -- methods here have verb-phrase names
 
-def summary
+def list_all_materials
   page 'Materials Summary' do
     dataset 'Materials Summary' do
       table 'Tier1MSISummary' do
@@ -329,28 +334,7 @@ def summary
   end
 end
 
-def chemistry_scores (indicator, short)
-  paragraph "<b>#{indicator}"
-  paragraph "We enumerate the stubstances that have an impact on #{indicator} in phase 1 processing. Later we will choose the worst case phase 1 driver. See [[Why Phases and Drivers]]."
-  total "#{indicator} (phase 1 min)", 'MINIMUM' do
-    chemistry "Weighted #{short}", '1'
-    paragraph "We choose the minimum (worst case) #{indicator} for phase 1 substances as one driver for the score."
-  end
-  paragraph "This completes the phase 1 #{indicator} calculation."
-  paragraph "We enumerate the stubstances that have an impact on #{indicator} in phase 2 processing. Later we will choose the worst case phase 2 driver. See [[Why Phases and Drivers]]."
-  total "#{indicator} (phase 2 min)", 'MINIMUM' do
-    chemistry "Weighted #{short}", '2'
-    paragraph "And we choose the minimum (worst case) #{indicator} for phase 2 substances as the other driver."
-  end
-  paragraph "We average the drivers from both phases to contribute a single #{indicator} metric."
-  total indicator, 'AVERAGE' do
-    recall "#{indicator} (phase 1 min)"
-    recall "#{indicator} (phase 2 min)"
-  end
-  paragraph "This completes the #{indicator} score calculation. We'll average this with other indicators at the end of the chemistry section."
-end
-
-def content
+def describe_each_material
   materials.each do |material|
     # puts "'#{material}'"
     @material = material
@@ -395,10 +379,10 @@ def content
         data @tables[name], "[[#{name}]]"
         paragraph 'We cache a copy of the allocated percentages here to simplify our computations for the moment.'
 
-        chemistry_scores 'Acute Toxicity', 'Acute'
-        chemistry_scores 'Chronic Toxicity', 'Chronic'
-        chemistry_scores 'Carcinogenicity', 'carcinogen'
-        chemistry_scores 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
+        chemistry_toxicity 'Acute Toxicity', 'Acute'
+        chemistry_toxicity 'Chronic Toxicity', 'Chronic'
+        chemistry_toxicity 'Carcinogenicity', 'carcinogen'
+        chemistry_toxicity 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
 
         paragraph 'Now we compute four toxicity and carcinogenicity chemistry factors for materials from substances employed in their manufacture. These are allocated to and talled separately for each phase. See [[Manufacturing Phases]].'
         paragraph '<b>Chemistry Total'
@@ -474,7 +458,7 @@ def content
   end
 end
 
-def workbook
+def describe_source_tables
   page 'Workbook Summary' do
     paragraph "These tables have been extracted from the [[Nike MSI Workbook]] through a Visual Basic program."
     paragraph "Related columns have been collapsed into single columns containing value objects with aditional fields for units, notes and formulas."
@@ -503,16 +487,16 @@ def workbook
       paragraph "<h3>Columns"
       paragraph "For each column we list the most frequent values and the count of various other values (denoted as ...)"
       input['columns'].each do |col|
-        report = frequent input, col
+        report = table_column_values input, col
         paragraph "<b>#{col}</b><br>#{report.join ', '}"
       end
     end
   end
 end
 
-init
-summary
-content
-workbook
+load
+list_all_materials
+describe_each_material
+describe_source_tables
 
 puts "\n#{@trouble} trouble"
