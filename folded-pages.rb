@@ -161,9 +161,8 @@ def page title
   path = "../pages/#{slug(title)}"
   action = create title, @story
   begin
-    # raise "skip history as if there were none"
+    raise "skip history as if there were none"
     page = JSON.parse File.read(path)
-    puts page.keys.inspect
     page['story'] = @story
     page['journal'] ||= []
     page['journal'] << action
@@ -229,11 +228,38 @@ def recall key
   @calculate << key
 end
 
+def substance_score row, category
+
+  (short_category, long_category) = case category
+  	when /Acute/i then ['Acute', 'Acute Toxicity']
+  	when /Chronic/i then ['Chronic', 'Chronic Toxicity']
+  	when /Carcinogen/i then ['Carcinogen', 'Carcinogenicity']
+  	when /Reproductive/i then ['ReproEndo', 'Reproductive/Endocrine Disrupter Toxicity']
+  	else trouble "Can't understand #{category}"
+  end
+
+  paragraph "#{row['Substance']} Phase #{row['Phase']} #{short_category} score:"
+  processes = ['Fiber / Subcomponent', 'Refinery Processing to Pellet', 'Textile / Component']
+  info = []
+  processes.each do |process|
+    info << "#{row[process].my_value} #{process}" if row[process] != ''
+  end
+  info << "FIRST Exposure"
+  info << "#{row[short_category].my_value} Raw"
+  info << "LOOKUP Tier3ExposurePercentages"
+  weightTable = @tables['Tier3WeightTable']['data']
+  points = weightTable.find{|r| r['SubType'] == long_category}['Points']
+  info << "#{points} #{long_category} Points"
+  info << "PRODUCT #{row['Substance']} (Phase #{row['Phase']})"
+  method info
+end
+
 def chemistry key, phase
   chemistryData = @tables['Tier3ChemistryData']['data']
   chemistryData.select{|row|row['Material']==name(@material)&&row['Phase']==phase}.each do |row|
     value = row[key].my_value
     next if empty(value)
+    substance_score row, key
     @calculate << "#{value} #{row['Substance']}"
   end
 end
@@ -305,20 +331,23 @@ end
 
 def chemistry_scores (indicator, short)
   paragraph "<b>#{indicator}"
-  paragraph "We choose the minimum (worst case) #{indicator} for phase 1 substances as one driver for the score."
-  total "#{indicator} (phase 1 min)", 'MIN' do
+  paragraph "We enumerate the stubstances that have an impact on #{indicator} in phase 1 processing. Later we will choose the worst case phase 1 driver. See [[Why Phases and Drivers]]."
+  total "#{indicator} (phase 1 min)", 'MINIMUM' do
     chemistry "Weighted #{short}", '1'
+    paragraph "We choose the minimum (worst case) #{indicator} for phase 1 substances as one driver for the score."
   end
-  paragraph "And we choose the minimum (worst case) #{indicator} for phase 2 substances as the other driver."
-  total "#{indicator} (phase 2 min)", 'MIN' do
+  paragraph "This completes the phase 1 #{indicator} calculation."
+  paragraph "We enumerate the stubstances that have an impact on #{indicator} in phase 2 processing. Later we will choose the worst case phase 2 driver. See [[Why Phases and Drivers]]."
+  total "#{indicator} (phase 2 min)", 'MINIMUM' do
     chemistry "Weighted #{short}", '2'
+    paragraph "And we choose the minimum (worst case) #{indicator} for phase 2 substances as the other driver."
   end
   paragraph "We average the drivers from both phases to contribute a single #{indicator} metric."
-  total indicator, 'AVG' do
+  total indicator, 'AVERAGE' do
     recall "#{indicator} (phase 1 min)"
     recall "#{indicator} (phase 2 min)"
   end
-
+  paragraph "This completes the #{indicator} score calculation. We'll average this with other indicators at the end of the chemistry section."
 end
 
 def content
@@ -360,13 +389,18 @@ def content
           end
         end
 
-        paragraph 'Now we compute four toxicity and carcinogenicity chemistry factors for materials from substances employed in their manufacture. These are allocated to and talled separately for each phase. See [[Manufacturing Phases]].'
+        paragraph 'We will weight scores by percentages based on the exposure and the raw toxicity of each substance.'
+
+        name = "Tier3ExposurePercentages"
+        data @tables[name], "[[#{name}]]"
+        paragraph 'We cache a copy of the allocated percentages here to simplify our computations for the moment.'
 
         chemistry_scores 'Acute Toxicity', 'Acute'
         chemistry_scores 'Chronic Toxicity', 'Chronic'
         chemistry_scores 'Carcinogenicity', 'carcinogen'
         chemistry_scores 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
 
+        paragraph 'Now we compute four toxicity and carcinogenicity chemistry factors for materials from substances employed in their manufacture. These are allocated to and talled separately for each phase. See [[Manufacturing Phases]].'
         paragraph '<b>Chemistry Total'
         total 'Chemistry Total' do
           table 'Tier1MSISummary' do
