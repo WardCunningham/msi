@@ -83,6 +83,11 @@ def empty string
   string.strip == ''
 end
 
+def known obj
+  val = obj.my_value
+  empty(val) ? '-' : val
+end
+
 def materials
   @materials['Tier1MSISummary'].keys.sort
 end
@@ -135,8 +140,8 @@ def fold text
   yield
 end
 
-def method lines
-  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid}
+def method lines, options={}
+  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid}.merge(options)
 end
 
 def page title
@@ -202,14 +207,14 @@ def field column
   value = row.nil? ? "N/A" : row[column].my_value
   # puts [value, column, row].inspect if 'Acrylic fabric' == name(@material) && column == 'Energy Intensity'
   # handle calculate
-  return @calculate << "#{value} #{column}" unless @calculate.nil?
+  return @calculate << "#{known value} #{column}" unless @calculate.nil?
   # handle paragraph
   return if value.empty?
   paragraph external bold value
 end
 
 def recall key
-  @calculate << key
+  @calculate << " #{key}"
 end
 
 # content interpreters -- methods here have noun-phrase names
@@ -245,7 +250,6 @@ def chemistry_substance row, category
   	when /Reproductive/i then ['ReproEndo', 'Reproductive/Endocrine Disrupter Toxicity']
   	else trouble "Can't understand #{category}"
   end
-
   paragraph "#{row['Substance']} Phase #{row['Phase']} #{short_category} score:"
   processes = ['Fiber / Subcomponent', 'Refinery Processing to Pellet', 'Textile / Component']
   info = []
@@ -253,22 +257,25 @@ def chemistry_substance row, category
     info << "#{row[process].my_value} #{process}" if row[process] != ''
   end
   info << "FIRST Exposure"
-  info << "#{row[short_category].my_value} Raw"
+  info << "#{known row[short_category]} Raw"
   info << "LOOKUP Tier3ExposurePercentages"
   weightTable = @tables['Tier3WeightTable']['data']
   points = weightTable.find{|r| r['SubType'] == long_category}['Points']
-  info << "#{points} #{long_category} Points"
-  info << "PRODUCT #{row['Substance']} (Phase #{row['Phase']})"
-  method info
+  info << "#{known points} #{long_category} Points"
+  info << "PRODUCT #{row['Substance']}"
+  method info, {:silent=>true}
 end
 
-def chemistry_phase key, phase
+def chemistry_phase category, phase
   chemistryData = @tables['Tier3ChemistryData']['data']
-  chemistryData.select{|row|row['Material']==name(@material)&&row['Phase']==phase}.each do |row|
-    value = row[key].my_value
-    next if empty(value)
-    chemistry_substance row, key
-    @calculate << "#{value} #{row['Substance']}"
+  rows = chemistryData.select{|row|row['Material']==name(@material)&&row['Phase']==phase}
+  trouble "can't find any chemistry data for #{[@material, category, phase, rows.size].inspect}" if rows.size < 1
+  rows.each do |row|
+    puts (['Material','Substance','Phase',category].collect{|k|row[k].my_value}.inspect) if row['Material'] == 'Glass fiber'
+    # value = row[category].my_value
+    # next if empty(value)
+    chemistry_substance row, category
+    @calculate << " #{row['Substance']}"
   end
 end
 
