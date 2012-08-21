@@ -213,6 +213,10 @@ def field column
   paragraph external bold value
 end
 
+def given value, label=''
+  @calculate << "#{value} #{label}"
+end
+
 def recall key
   @calculate << " #{key}"
 end
@@ -298,6 +302,26 @@ def chemistry_toxicity indicator, short
     recall "#{indicator} (phase 2 min)"
   end
   paragraph "This completes the #{indicator} score calculation. We'll average this with other indicators at the end of the chemistry section."
+end
+
+def physical_waste indicator, short
+  paragraph "<b>#{indicator}"
+  waste = @tables['Tier3PhysicalWaste']['data']
+  sources = waste.select {|row| row['Material'] == name(@material) && row['Waste Type'] == short}
+  info = []
+  sources.each do |source|
+    # paragraph "'#{source['Totals'].my_value}' #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
+    info << "#{source['Totals'].my_value} #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
+  end
+  info << "SUM"
+  info << "POLYNOMIAL #{indicator}"
+
+  weightTable = @tables['Tier3WeightTable']['data']
+  points = weightTable.find{|r| r['SubType'] == indicator}['Points']
+  info << "#{known points} #{indicator} Points"
+  info << "PRODUCT #{indicator}"
+  method info, {:silent=>true}
+  paragraph '...'
 end
 
 # page generators -- methods here have verb-phrase names
@@ -386,10 +410,10 @@ def describe_each_material
         data @tables[name], "[[#{name}]]"
         paragraph 'We cache a copy of the allocated percentages here to simplify our computations for the moment.'
 
-        chemistry_toxicity 'Acute Toxicity', 'Acute'
-        chemistry_toxicity 'Chronic Toxicity', 'Chronic'
-        chemistry_toxicity 'Carcinogenicity', 'carcinogen'
-        chemistry_toxicity 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
+        # chemistry_toxicity 'Acute Toxicity', 'Acute'
+        # chemistry_toxicity 'Chronic Toxicity', 'Chronic'
+        # chemistry_toxicity 'Carcinogenicity', 'carcinogen'
+        # chemistry_toxicity 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
 
         paragraph 'Now we compute four toxicity and carcinogenicity chemistry factors for materials from substances employed in their manufacture. These are allocated to and talled separately for each phase. See [[Manufacturing Phases]].'
         paragraph '<b>Chemistry Total'
@@ -441,6 +465,7 @@ def describe_each_material
       end
 
       fold 'physical waste' do
+        physical_waste 'Recyclable / Compostable Waste', 'Recyclable/Compostable'
         total 'Physical Waste Total' do
           table 'Tier1MSISummary' do
             field 'Recyclable / Compostable Waste'
