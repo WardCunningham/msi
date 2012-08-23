@@ -124,7 +124,9 @@ def slug title
 end
 
 def create title, story
-  {'type' => 'create', 'id' => guid, 'item' => {'title' => title, 'story' => story}, 'date' => Time.now.to_i*1000}
+  @certificate ||= "From export: #{@try}, git sha-1: #{`git rev-parse HEAD`.chomp}"
+  item = {'title' => title, 'story' => story}
+  {'type' => 'create', 'id' => guid, 'item' => item, 'date' => Time.now.to_i*1000, 'certificate' => @certificate}
 end
 
 def paragraph text
