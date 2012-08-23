@@ -147,10 +147,10 @@ end
 def page title
   @story = []
   yield
-  path = "../pages/#{slug(title)}"
+  path = "../archive/#{slug(title)}"
   action = create title, @story
   begin
-    raise "skip history as if there were none"
+    # raise "skip history as if there were none"
     page = JSON.parse File.read(path)
     page['story'] = @story
     page['journal'] ||= []
