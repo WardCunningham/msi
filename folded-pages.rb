@@ -153,14 +153,14 @@ def page title
   action = create title, @story
   begin
     # raise "skip history as if there were none"
-    page = JSON.parse File.read(path)
+    page = JSON.parse File.read("../archive/#{slug(title)}")
     page['story'] = @story
     page['journal'] ||= []
     page['journal'] << action
   rescue
     page = {'title' => title, 'story' => @story, 'journal' => [action]}
   end
-  File.open(path, 'w') do |file|
+  File.open("../pages/#{slug(title)}", 'w') do |file|
     file.write JSON.pretty_generate(page)
   end
 end
