@@ -319,7 +319,7 @@ def physical_waste indicator, short
   info << "POLYNOMIAL #{indicator}"
 
   weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|r| r['SubType'] == indicator}['Points']
+  points = weightTable.find{|row| row['SubType'] == indicator}['Points']
   info << "#{known points} #{indicator} Points"
   info << "PRODUCT #{indicator}"
   method info, {:silent=>true}
