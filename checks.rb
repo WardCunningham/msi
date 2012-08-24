@@ -10,7 +10,7 @@ def check key
   return 'No Space Before Slash' if key =~ /[^ ]\//
   return 'Unexpected Asterisk' if key =~ /^ *\*/
   return 'Inexplicit Single Character' if key =~ /^.$/
-  return 'Unexpected ALL-CAPS' unless key =~ /[a-z]/
+  # return 'Unexpected ALL-CAPS' unless key =~ /[a-z]/
   return nil
 end
 
