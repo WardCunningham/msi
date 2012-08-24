@@ -253,7 +253,7 @@ def chemistry_substance row, category
   	when /Acute/i then ['Acute', 'Acute Toxicity']
   	when /Chronic/i then ['Chronic', 'Chronic Toxicity']
   	when /Carcinogen/i then ['Carcinogen', 'Carcinogenicity']
-  	when /Reproductive/i then ['ReproEndo', 'Reproductive/Endocrine Disrupter Toxicity']
+  	when /Reproductive/i then ['ReproEndo', 'Reproductive / Endocrine Disrupter Toxicity']
   	else trouble "Can't understand #{category}"
   end
   paragraph "#{row['Substance']} Phase #{row['Phase']} #{short_category} score:"
@@ -277,7 +277,7 @@ def chemistry_phase category, phase
   rows = chemistryData.select{|row|row['Material']==name(@material)&&row['Phase']==phase}
   trouble "can't find any chemistry data for #{[@material, category, phase, rows.size].inspect}" if rows.size < 1
   rows.each do |row|
-    puts (['Material','Substance','Phase',category].collect{|k|row[k].my_value}.inspect) if row['Material'] == 'Glass fiber'
+    # puts (['Material','Substance','Phase',category].collect{|k|row[k].my_value}.inspect) if row['Material'] == 'Glass fiber'
     # value = row[category].my_value
     # next if empty(value)
     chemistry_substance row, category
@@ -308,22 +308,25 @@ end
 
 def physical_waste indicator, short
   paragraph "<b>#{indicator}"
-  waste = @tables['Tier3PhysicalWaste']['data']
-  sources = waste.select {|row| row['Material'] == name(@material) && row['Waste Type'] == short}
   info = []
-  sources.each do |source|
-    # paragraph "'#{source['Totals'].my_value}' #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
-    info << "#{source['Totals'].my_value} #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
+  other = @tables['Tier3OtherPhysicalWaste']['data']
+  estimate = other.find {|row| row['Material'] == name(@material)}
+  if estimate
+    info << "#{estimate[indicator].to_f / 100} #{indicator} Percentage"
+  else
+    waste = @tables['Tier3PhysicalWaste']['data']
+    sources = waste.select {|row| row['Material'] == name(@material) && row['Waste Type'] == short}
+    sources.each do |source|
+      info << "#{source['Totals'].my_value} #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
+    end
+    info << "SUM"
+    info << "POLYNOMIAL #{indicator}"
   end
-  info << "SUM"
-  info << "POLYNOMIAL #{indicator}"
-
   weightTable = @tables['Tier3WeightTable']['data']
   points = weightTable.find{|row| row['SubType'] == indicator}['Points']
   info << "#{known points} #{indicator} Points"
   info << "PRODUCT #{indicator}"
   method info, {:silent=>true}
-  paragraph '...'
 end
 
 # page generators -- methods here have verb-phrase names
@@ -412,10 +415,10 @@ def describe_each_material
         data @tables[name], "[[#{name}]]"
         paragraph 'We cache a copy of the allocated percentages here to simplify our computations for the moment.'
 
-        # chemistry_toxicity 'Acute Toxicity', 'Acute'
-        # chemistry_toxicity 'Chronic Toxicity', 'Chronic'
-        # chemistry_toxicity 'Carcinogenicity', 'carcinogen'
-        # chemistry_toxicity 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
+        chemistry_toxicity 'Acute Toxicity', 'Acute'
+        chemistry_toxicity 'Chronic Toxicity', 'Chronic'
+        chemistry_toxicity 'Carcinogenicity', 'carcinogen'
+        chemistry_toxicity 'Reproductive / Endocrine Disrupter Toxicity', 'Reproductive'
 
         paragraph 'Now we compute four toxicity and carcinogenicity chemistry factors for materials from substances employed in their manufacture. These are allocated to and talled separately for each phase. See [[Manufacturing Phases]].'
         paragraph '<b>Chemistry Total'
@@ -468,13 +471,18 @@ def describe_each_material
 
       fold 'physical waste' do
         physical_waste 'Recyclable / Compostable Waste', 'Recyclable/Compostable'
+        physical_waste 'Municipal Solid Waste', 'Municipal Solid Waste'
+        physical_waste 'Mineral Waste', 'Mineral'
+        physical_waste 'Hazardous Waste', 'Hazardous'
+        physical_waste 'Industrial Waste', 'Industrial'
+        paragraph "<b> Physical Waste Total"
         total 'Physical Waste Total' do
           table 'Tier1MSISummary' do
-            field 'Recyclable / Compostable Waste'
-            field 'Municipal Solid Waste'
-            field 'Mineral Waste'
-            field 'Hazardous Waste'
-            field 'Industrial Waste'
+            recall 'Recyclable / Compostable Waste'
+            recall 'Municipal Solid Waste'
+            recall 'Mineral Waste'
+            recall 'Hazardous Waste'
+            recall 'Industrial Waste'
           end
         end
         paragraph 'No physical waste documentation at present.'
