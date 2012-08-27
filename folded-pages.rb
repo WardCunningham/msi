@@ -16,27 +16,46 @@ end
 @tables = {}
 @materials = {}
 
+# Additional Column Conventions (to be touched up after 8-25-12 version)
+# these column heading conventions apply to Tier3(Water|Land|GHG|Energy)Data
+
+# Total
+# Total Units
+# Total Notes
+
+# Water Finishing (Total|Subtotal)
+# Water Finishing Units
+# Water Finishing Notes
+
+# Bleaching
+# Bleaching Units
+# Bleaching Notes
+
+# Fabric
+# Fabric Add on
+
 def convert! name, table
-  sufix = 'Formula'
-  targets = {}
-  columns = table['columns']
-  columns.each do |col|
-    if col =~ /(.+?)_#{sufix}/
-      candidates = columns.select {|e| e==$1}
-      if candidates.length == 1
-        targets[col] = candidates.first
-      else
-        trouble "Can't find column for #{col} in #{name}"
+  ['_Formula'].each do |sufix|
+    targets = {}
+    columns = table['columns']
+    columns.each do |col|
+      if col =~ /(.+?)#{sufix}/
+        candidates = columns.select {|e| e==$1}
+        if candidates.length == 1
+          targets[col] = candidates.first
+        else
+          trouble "Can't find column for #{col} in #{name}"
+        end
       end
     end
-  end
-  table['data'] = table['data'].collect do |row|
-    targets.each do |formula, target|
-      row[target] = {'value' => row[target], sufix.downcase => row[formula]}
+    table['data'] = table['data'].collect do |row|
+      targets.each do |formula, target|
+        row[target] = {'value' => row[target], sufix.downcase => row[formula]}
+      end
+      row.reject {|k,v| targets.include? k}
     end
-    row.reject {|k,v| targets.include? k}
+    table['columns'] = table['columns'] - targets.keys
   end
-  table['columns'] = table['columns'] - targets.keys
 end
 
 def index key, table
