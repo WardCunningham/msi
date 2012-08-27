@@ -325,6 +325,69 @@ def chemistry_toxicity indicator, short
   paragraph "This completes the #{indicator} score calculation. We'll average this with other indicators at the end of the chemistry section."
 end
 
+def water_data
+  paragraph "<b> Water"
+  info = []
+  water = @tables['Tier3WaterData']['data']
+  row = water.find {|row| row['Material'] == name(@material)}
+  steps = ['Greige / Other', 'Desizing', 'Scouring / Washing', 'Bleaching',
+    'Fulling', 'Mercerization', 'Dyeing', 'Printing', 'Rinsing / Finishing']
+  steps.each do |col|
+    if empty(row[col].my_value)
+      info << "0 #{col}"
+    else
+      info << "#{row[col].my_value} #{col}"
+    end
+  end
+  info << "SUM Water Finishing Total"
+  method info
+  process = @tables['Tier3ProcessInformation']['data']
+  info = ["1 Kg Output"]
+  rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == 'Water'}.sort_by{|row| row['Phase']}.reverse
+  paragraph "We compute the mass required at each phase to yield one Kg of material after all phases."
+  rows.each do |row|
+    paragraph "#{row['Phase']} (#{row['Phase Name']}) #{row['Material loss % or Allocation %']} loss #{row['Kg per Unit']} Kg/Unit"
+    loss_adjustment = 1/(1-row['Material loss % or Allocation %'].to_f)
+    info << "#{loss_adjustment} adjustment for loss in #{row['Phase Name']}"
+    info << "PRODUCT Mass Input Phase #{row['Phase']}"
+  end
+  method info
+  paragraph "We comput the quantity of stuff required by that phase"
+  rows.each do |row|
+    info = []
+    # default = row['Phase'] == '0' ? 0 : 1
+    default = 0
+    info << "#{empty(row['Kg per Unit']) ? default : row['Kg per Unit']} Kg per Unit for #{row['Phase Name']}"
+    info << " Mass Input Phase #{row['Phase']}"
+    info << "PRODUCT Mass used of #{row ['Phase Name']}"
+    method info
+  end
+  info = []
+  paragraph "Now we add up all the stuff."
+  rows.each do |row|
+    info << " Mass used of #{row ['Phase Name']}"
+  end
+  info << "SUM Water Process Total"
+  method info
+
+  paragraph "And apply the appropriate polynomial"
+  info = []
+  info << " Water Process Total"
+   if name(@material) =~ / fabric$/i
+    info << "1.02 Fabric Add On"
+    info << "PRODUCT Adjusted Water Processing Total"
+  end
+  info << " Water Finishing Total"
+  info << "SUM Water Raw Score"
+  info << "POLYNOMIAL Water Intensity"
+  weightTable = @tables['Tier3WeightTable']['data']
+  points = weightTable.find{|row| row['SubType'] == "Water Intensity"}['Points']
+  info << "#{known points} #{"Water Intensity"} Points"
+  info << "PRODUCT #{"Water Intensity Score"}"
+  method info
+
+end
+
 def physical_waste indicator, short
   paragraph "<b>#{indicator}"
   info = []
@@ -416,6 +479,19 @@ def describe_each_material
       end
       paragraph 'Try visualizing with the [[D3 Radar Chart]].'
 
+      fold 'reference data' do
+
+        name = "Tier3ExposurePercentages"
+        data @tables[name], "[[#{name}]]"
+        paragraph 'We cache a copy of the allocated percentages here to simplify our computations for the moment.'
+        paragraph 'You can substitute different allocations by dragging a different table here.'
+        paragraph 'You can use one table for all materials by removing this table and providing an alternative to the left.'
+
+        name = "Tier3Polynomials"
+        data @tables[name], "[[#{name}]]"
+        paragraph 'We also cache a copy of the ranged polynomial coeficients we will use to translate measurements and estimates to scores.'
+      end
+
       fold 'chemistry' do
 
         paragraph 'We start with the Chemistry Total as computed in the excel workbook. We will be checking these with the client-side computations as we go along'
@@ -430,9 +506,6 @@ def describe_each_material
 
         paragraph 'We will weight scores by percentages based on the exposure and the raw toxicity of each substance.'
 
-        name = "Tier3ExposurePercentages"
-        data @tables[name], "[[#{name}]]"
-        paragraph 'We cache a copy of the allocated percentages here to simplify our computations for the moment.'
 
         chemistry_toxicity 'Acute Toxicity', 'Acute'
         chemistry_toxicity 'Chronic Toxicity', 'Chronic'
@@ -473,9 +546,11 @@ def describe_each_material
       end
 
       fold 'water/land' do
+        water_data
+        paragraph "Now we sum the scores for both water and land."
         total 'Water / Land Intensity Total' do
           table 'Tier1MSISummary' do
-            field 'Water Intensity'
+            recall 'Water Intensity Score'
             field 'Land Intensity'
           end
         end
