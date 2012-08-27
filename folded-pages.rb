@@ -514,8 +514,6 @@ def describe_each_material
         end
 
         paragraph 'We will weight scores by percentages based on the exposure and the raw toxicity of each substance.'
-
-
         chemistry_toxicity 'Acute Toxicity', 'Acute'
         chemistry_toxicity 'Chronic Toxicity', 'Chronic'
         chemistry_toxicity 'Carcinogenicity', 'carcinogen'
