@@ -325,6 +325,14 @@ def chemistry_toxicity indicator, short
   paragraph "This completes the #{indicator} score calculation. We'll average this with other indicators at the end of the chemistry section."
 end
 
+def mass_used_label row
+  if empty(row['Phase Name'])
+    "Mass used for Phase #{row['Phase']}"
+  else
+    "Mass used for #{row['Phase Name']}"
+  end
+end
+
 def water_data
   paragraph "<b> Water"
   info = []
@@ -359,13 +367,14 @@ def water_data
     default = 0
     info << "#{empty(row['Kg per Unit']) ? default : row['Kg per Unit']} Kg per Unit for #{row['Phase Name']}"
     info << " Mass Input Phase #{row['Phase']}"
-    info << "PRODUCT Mass used of #{row ['Phase Name']}"
+    info << "PRODUCT #{mass_used_label row}"
+    # info << "PRODUCT Mass used of #{row ['Phase Name']}"
     method info
   end
   info = []
-  paragraph "Now we add up all the stuff."
+  paragraph "Now we add up the mass used in each phase."
   rows.each do |row|
-    info << " Mass used of #{row ['Phase Name']}"
+    info << " #{mass_used_label row}"
   end
   info << "SUM Water Process Total"
   method info
