@@ -359,11 +359,8 @@ def mass_used_label row
   end
 end
 
-def water_data
-  paragraph "<b> Water"
+def water_finishing row
   info = []
-  water = @tables['Tier3WaterData']['data']
-  row = water.find {|row| row['Material'] == name(@material)}
   steps = ['Greige / Other', 'Desizing', 'Scouring / Washing', 'Bleaching',
     'Fulling', 'Mercerization', 'Dyeing', 'Printing', 'Rinsing / Finishing']
   steps.each do |col|
@@ -375,8 +372,12 @@ def water_data
   end
   info << "SUM Water Finishing Total"
   method info
+end
+
+def water_processing row
   process = @tables['Tier3ProcessInformation']['data']
-  info = ["1 Kg Output"]
+  info = []
+  info << "1 Kg Output"
   rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == 'Water'}.sort_by{|row| row['Phase']}.reverse
   paragraph "We compute the mass required at each phase to yield one Kg of material after all phases."
   rows.each do |row|
@@ -404,16 +405,35 @@ def water_data
   end
   info << "SUM Water Process Total"
   method info
+end
 
+def water_raw_score row
+  info = []
+  if empty(row['Total']['formula'])
+    info << "#{row['Total'].my_value} Water Raw Score"
+  else
+    water_finishing row
+    water_processing row
+    paragraph "Now sum the finishing and processing"
+    info << " Water Process Total"
+     if name(@material) =~ / fabric$/i
+      info << "1.02 Fabric Add On"
+      info << "PRODUCT Adjusted Water Processing Total"
+    end
+    info << " Water Finishing Total"
+    info << "SUM Water Raw Score"
+  end
+  method info
+end
+
+def water_intensity
+  paragraph "<b> Water"
+  water = @tables['Tier3WaterData']['data']
+  row = water.find {|row| row['Material'] == name(@material)}
+  water_raw_score row
   paragraph "And apply the appropriate polynomial"
   info = []
-  info << " Water Process Total"
-   if name(@material) =~ / fabric$/i
-    info << "1.02 Fabric Add On"
-    info << "PRODUCT Adjusted Water Processing Total"
-  end
-  info << " Water Finishing Total"
-  info << "SUM Water Raw Score"
+  info << " Water Raw Score"
   info << "POLYNOMIAL Water Intensity"
   weightTable = @tables['Tier3WeightTable']['data']
   points = weightTable.find{|row| row['SubType'] == "Water Intensity"}['Points']
@@ -421,6 +441,23 @@ def water_data
   info << "PRODUCT #{"Water Intensity Score"}"
   method info
 
+end
+
+def land_intensity
+  paragraph "<b> Land"
+  info = []
+  land = @tables['Tier3LandData']['data']
+  row = land.find {|row| row['Material'] == name(@material)}
+
+  paragraph "We specify a quantitity and apply the appropriate polynomial"
+  info = []
+  info << "#{row['Total']} Raw Land Data"
+  info << "POLYNOMIAL Land Intensity"
+  weightTable = @tables['Tier3WeightTable']['data']
+  points = weightTable.find{|row| row['SubType'] == "Land Intensity"}['Points']
+  info << "#{known points} #{"Land Intensity"} Points"
+  info << "PRODUCT #{"Land Intensity Score"}"
+  method info
 end
 
 def physical_waste indicator, short
@@ -579,12 +616,13 @@ def describe_each_material
       end
 
       fold 'water/land' do
-        water_data
+        water_intensity
+        land_intensity
         paragraph "Now we sum the scores for both water and land."
         total 'Water / Land Intensity Total' do
           table 'Tier1MSISummary' do
             recall 'Water Intensity Score'
-            field 'Land Intensity'
+            recall 'Land Intensity Score'
           end
         end
         table 'Tier3MaterialData' do
@@ -656,7 +694,7 @@ def describe_source_tables
       paragraph "<h3>Columns"
       paragraph "For each column we list the most frequent values and the count of various other values (denoted as ...)"
       input['columns'].each do |col|
-        report = table_column_values input, col
+        report = table_column_values name, input, col
         paragraph "<b>#{col}</b><br>#{report.join ', '}"
       end
     end
