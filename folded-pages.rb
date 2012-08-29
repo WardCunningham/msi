@@ -35,11 +35,11 @@ end
 # Fabric Add on
 
 def convert! name, table
-  ['_Formula'].each do |sufix|
+  ['Formula'].each do |sufix|
     targets = {}
     columns = table['columns']
     columns.each do |col|
-      if col =~ /(.+?)#{sufix}/
+      if col =~ /(.+?)( |_)#{sufix}$/
         candidates = columns.select {|e| e==$1}
         if candidates.length == 1
           targets[col] = candidates.first
@@ -50,7 +50,7 @@ def convert! name, table
     end
     table['data'] = table['data'].collect do |row|
       targets.each do |formula, target|
-        row[target] = {'value' => row[target], sufix.downcase => row[formula]}
+        row[target] = {'value' => row[target], sufix.downcase => row[formula]} if row[formula]
       end
       row.reject {|k,v| targets.include? k}
     end
