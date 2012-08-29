@@ -99,6 +99,7 @@ class NilClass
 end
 
 def empty string
+  return true unless string
   string.strip == ''
 end
 
