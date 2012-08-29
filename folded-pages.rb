@@ -245,12 +245,13 @@ end
 
 # content interpreters -- methods here have noun-phrase names
 
-def table_column_values table, col
+def table_column_values name, table, col
   dist = Hash.new(0)
   table['data'].each do |dat|
     code = dat[col].nil? ? "<nil>" : dat[col].my_value
     dist[code] += 1
   end
+
   report = dist.keys.select{|a|dist[a]>1}.sort{|a,b|dist[b]<=>dist[a]}.collect do |key|
     count = dist[key]
     dup = count>1 ? "#{count}x" : ""
@@ -265,6 +266,30 @@ def table_column_values table, col
     end
   end
   report
+end
+
+def table_column_formulas name, table, col
+  formulas = Hash.new(0)
+  count = 0
+  table['data'].each do |dat|
+    next unless dat[col]['formula']
+    formulas[dat[col]['formula']] += 1
+    count += 1
+  end
+  unless formulas.empty?
+    if formulas.size > 1 or formulas.first.last < table['data'].size
+      paragraph "[[#{name}]]" unless @last_table_name == name
+      items = ["<b>#{col}</b>"]
+      if (absent = table['data'].size - count) > 0
+        items << "#{absent} x absent"
+      end
+      formulas.each do |key, value|
+        items << "#{value} x #{key.length > 45 ? key[0..42]+'...' : key}"
+      end
+      paragraph items.join('<br>')
+      @last_table_name = name
+    end
+  end
 end
 
 def chemistry_substance row, category
