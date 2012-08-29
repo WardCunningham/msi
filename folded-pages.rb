@@ -661,6 +661,17 @@ def describe_source_tables
       end
     end
   end
+  page 'Workbook Formulas' do
+    paragraph "We list columns that have formulas that vary between rows of a given table. This indicates a need for special handling in the workbook to wiki page translation."
+    paragraph "See [[Workbook Summary]] for a complete list of tables."
+    paragraph "When a formula is listed as <i>absent</i> that indicates that a calculation has been overridden with a specific value, possibly blank or null."
+    @tables.keys.sort.each do |name|
+      input = @tables[name]
+      input['columns'].each do |col|
+        table_column_formulas name, input, col
+      end
+    end
+  end
 end
 
 load
