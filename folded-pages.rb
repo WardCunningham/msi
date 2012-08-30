@@ -359,10 +359,14 @@ def mass_used_label row
   end
 end
 
-def water_finishing row
+def finishing type, row
   info = []
-  steps = ['Greige / Other', 'Desizing', 'Scouring / Washing', 'Bleaching',
-    'Fulling', 'Mercerization', 'Dyeing', 'Printing', 'Rinsing / Finishing']
+  steps = case type
+  when 'Water' then ['Greige / Other', 'Desizing', 'Scouring / Washing', 'Bleaching', 'Fulling', 'Mercerization', 'Dyeing', 'Printing', 'Rinsing / Finishing']
+  when 'Energy' then ['Greige / Other', 'Dyeing and Finishing', 'Other']
+  else
+    trouble "Don't know type #{type}"
+  end
   steps.each do |col|
     if empty(row[col].my_value)
       info << "0 #{col}"
@@ -370,19 +374,24 @@ def water_finishing row
       info << "#{row[col].my_value} #{col}"
     end
   end
-  info << "SUM Water Finishing Total"
+  info << "SUM #{type} Finishing Total"
   method info
 end
 
-def water_processing row
+def processing type, row
   process = @tables['Tier3ProcessInformation']['data']
   info = []
   info << "1 Kg Output"
-  rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == 'Water'}.sort_by{|row| row['Phase']}.reverse
+  rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == type}.sort_by{|row| row['Phase']}.reverse
   paragraph "We compute the mass required at each phase to yield one Kg of material after all phases."
+  paragraph "Note: adjustment is allocation for Phase 0, material loss % for other Phases."
   rows.each do |row|
     paragraph "#{row['Phase']} (#{row['Phase Name']}) #{row['Material loss % or Allocation %']} loss #{row['Kg per Unit']} Kg/Unit"
-    loss_adjustment = 1/(1-row['Material loss % or Allocation %'].to_f)
+    if row['Phase'] == '0'
+      loss_adjustment = row['Material loss % or Allocation %']
+    else
+      loss_adjustment = 1/(1-row['Material loss % or Allocation %'].to_f)
+    end
     info << "#{loss_adjustment} adjustment for loss in #{row['Phase Name']}"
     info << "PRODUCT Mass Input Phase #{row['Phase']}"
   end
@@ -390,11 +399,17 @@ def water_processing row
   paragraph "We comput the quantity of stuff required by that phase"
   rows.each do |row|
     info = []
-    # default = row['Phase'] == '0' ? 0 : 1
     default = 0
     info << "#{empty(row['Kg per Unit']) ? default : row['Kg per Unit']} Kg per Unit for #{row['Phase Name']}"
     info << " Mass Input Phase #{row['Phase']}"
     info << "PRODUCT #{mass_used_label row}"
+    if type == 'Energy' && !empty(row['Transport Scenario'])
+      transport = @tables['Tier3TransportScenario']['data']
+      trow = transport.find {|trow| trow['Scenario'] == row['Transport Scenario']}
+      puts [@material, type, row['Phase'], row['Transport Scenario'], trow['Description']].inspect
+      info << "#{trow[type].my_value} #{trow['Description']}"
+      info << "SUM #{mass_used_label row}"
+    end
     # info << "PRODUCT Mass used of #{row ['Phase Name']}"
     method info
   end
@@ -403,26 +418,44 @@ def water_processing row
   rows.each do |row|
     info << " #{mass_used_label row}"
   end
-  info << "SUM Water Process Total"
+  info << "SUM #{type} Process Total"
   method info
 end
 
-def water_raw_score row
+def raw_score type, row
   info = []
   if empty(row['Total']['formula'])
-    info << "#{row['Total'].my_value} Water Raw Score"
+    info << "#{row['Total'].my_value} #{type} Raw Score"
   else
-    water_finishing row
-    water_processing row
+    finishing type, row
+    processing type, row
     paragraph "Now sum the finishing and processing"
-    info << " Water Process Total"
-     if name(@material) =~ / fabric$/i
-      info << "1.02 Fabric Add On"
-      info << "PRODUCT Adjusted Water Processing Total"
+    info << " #{type} Process Total"
+    # Feedstock energy
+    if type == 'Energy'
+      info << "#{row['Feedstock']} Feedstock"
+      info << "SUM"
     end
-    info << " Water Finishing Total"
-    info << "SUM Water Raw Score"
+    if name(@material) =~ / fabric$/i
+      info << "1.02 Fabric Add On"
+      info << "PRODUCT Adjusted #{type} Processing Total"
+    end
+    info << " #{type} Finishing Total"
+    info << "SUM #{type} Raw Score"
   end
+  method info
+end
+
+def intensity type, row
+  raw_score type, row
+  paragraph "And apply the appropriate polynomial"
+  info = []
+  info << " #{type} Raw Score"
+  info << "POLYNOMIAL #{type} Intensity"
+  weightTable = @tables['Tier3WeightTable']['data']
+  points = weightTable.find{|row| row['SubType'] == "#{type} Intensity"}['Points']
+  info << "#{known points} #{"#{type} Intensity"} Points"
+  info << "PRODUCT #{"#{type} Intensity Score"}"
   method info
 end
 
@@ -430,17 +463,14 @@ def water_intensity
   paragraph "<b> Water"
   water = @tables['Tier3WaterData']['data']
   row = water.find {|row| row['Material'] == name(@material)}
-  water_raw_score row
-  paragraph "And apply the appropriate polynomial"
-  info = []
-  info << " Water Raw Score"
-  info << "POLYNOMIAL Water Intensity"
-  weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|row| row['SubType'] == "Water Intensity"}['Points']
-  info << "#{known points} #{"Water Intensity"} Points"
-  info << "PRODUCT #{"Water Intensity Score"}"
-  method info
+  intensity 'Water', row
+end
 
+def energy_intensity
+  paragraph "<b> Energy"
+  data = @tables['Tier3EnergyData']['data']
+  row = data.find {|row| row['Material'] == name(@material)}
+  intensity 'Energy', row
 end
 
 def land_intensity
@@ -599,9 +629,11 @@ def describe_each_material
       end
 
       fold 'energy/ghg' do
+        energy_intensity
+        paragraph "And sum Energy and GHG Emissions."
         total 'Energy / GHG Emissions Intensity Total' do
           table 'Tier1MSISummary' do
-            field 'Energy Intensity'
+            recall 'Energy Intensity Score'
             field 'GHG Emissions Intensity'
           end
         end
