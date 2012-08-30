@@ -15,7 +15,9 @@ class Calculate
     @tables = {}
     @columns = {}
     @formulas = {}
-    Dir.glob 'try6/*.json' do |filename|
+    
+    try = 'try7'
+    Dir.glob "#{try}/*.json" do |filename|
       next if filename =~ /Tier3Functions.json$/
       input = load filename
       columns = input['columns']
@@ -28,16 +30,16 @@ class Calculate
         @columns[name] = input['columns'].reject{|col|col=~/_Formula/}
       end
     end
-    load("try6/Tier3Functions.json")['data'].each do |row|
+    load("#{try}/Tier3Functions.json")['data'].each do |row|
       @formulas[row['Function Name']] = row['Function']
     end
   end
 
   def node obj, label=nil
-    if n = @node[obj]
+    if n = @node[obj.inspect]
       return n
     end
-    @node[obj] = n = "n#{@node.size}"
+    @node[obj.inspect] = n = "n#{@node.size}"
     shape = 'shape=square fillcolor=white' if label =~ /fetch/
     @dot << "#{n} [label = \"#{label}\"  #{shape}];"
     n
@@ -45,7 +47,7 @@ class Calculate
 
   def log it, mark, show
     now = it+mark
-    @dot << "#{node it}->#{node now, mark.join('\n').gsub(/[ \/]+/,'\n')};"
+    @dot << "#{node it}->#{node now, mark.join('\n').gsub(/[ \/]+/,'\n').gsub(/<.*?>/,'')};"
     @log.puts "<li>#{it.join(" &nbsp; ")}<br><font color=#ccc>#{show.inspect}</font>\n"
     return now
   end
@@ -98,8 +100,20 @@ class Calculate
     it = log it, ['fetch',column], [from, column]
     (table, key) = from
     val = @data[table].collect do |row|
+      if formula = row["#{column}_Formula"]
+        begin
+          it = log it, from, row[@columns[table][0]]
+          got = execute it, [table, row[@columns[table][0]]], formula
+          judge = got == val.to_f ? "<font color=green>GOOD</font>" : "<font color=red>BAD</font>"
+          @log.puts "<br>#{judge}: had #{val.inspect}, got #{got.inspect} for #{formula}"
+        rescue Exception => e
+          log it, ['<font color=red>RESCUE</font>'], "#{e.message}<br>#{e.backtrace.join('<br>')}"
+          return val
+        end
+      else
       # throw Exception.new "Don't fetch columns of formulas yet" if formula = row["#{column}_Formula"]
-      row[column.to_s]
+        row[column.to_s]
+      end
     end
     @log.puts "<font color=gold>#{val.inspect}</font>"
     val
@@ -169,6 +183,8 @@ class Calculate
       when 'AVERAGE': avg args.collect{|arg| eval(it,from,arg)}
       when 'VLOOKUP': vlookup it, eval(it,from,args[0]), args[1], args[2], eval(it,from,args[3])
       when 'IF': eval(it,from,args[0]) ? eval(it,from,args[1]) : eval(it,from,args[2])
+      when 'IFERROR': (n=eval(it,from,args[0])) || eval(it,from,args[1])
+      when 'LOG': Math.ln(eval(it,from,args[0]))/Math.ln(10)
       else throw Exception.new "Don't know function: '#{f}'"
       end
     when c=expr[:column]
@@ -249,7 +265,10 @@ end
 begin
   # puts @calc.fetch [],['Tier3ChemistryData','Cotton fabric'], 'Substance'
   # puts @calc.fetch [],['Tier3ChemistryData','Cotton fabric'], 'Carcinogen'
-  puts @calc.fetch [],['Tier1MSISummary','Cotton fabric'], ' Chemistry Total'
+  puts @calc.fetch [],["Tier1MSISummary", "Cotton fabric"], "Carcinogenicity "
+  # puts @calc.fetch [],['Tier1MSISummary','Cotton fabric'], ' Chemistry Total'
+  # puts @calc.fetch [],['Tier1MSISummary','Polyester fabric'], ' Chemistry Total'
+  # puts @calc.fetch [],['Tier1MSISummary','Polyester fabric'], 'Energy Intensity'
 ensure
   @calc.close
 end
