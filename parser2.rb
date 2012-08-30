@@ -26,7 +26,7 @@ class Parser
     rule(:dollar) { match('\$') >> sp? }
     rule(:bang) { match('\!') >> sp? }
     rule(:coln) { match('\:') >> sp? }
-    rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9'].repeat(0) }
+    rule(:name) { match['a-zA-Z'] >> match['a-zA-Z0-9_'].repeat(0) }
     rule(:file) { match("'") >> match["^'"].repeat(0).as(:file) >> match("'") }
 
     rule(:bool) { (str('TRUE') | str('FALSE')).as(:boolean)}

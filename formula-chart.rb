@@ -91,7 +91,7 @@ def eval str, from, expr
   when f=expr[:function]
     tip = String.new str
     tip = tip[0..(rightpos(expr)+1)]
-    [expr[:args]].flatten.sort{|a,b|leftpos(a)<=>leftpos(b)}.each {|arg| tip[leftpos(arg)..rightpos(arg)]="#{arg[:function]}(...)" if arg[:function]}
+    # [expr[:args]].flatten.sort{|a,b|leftpos(a)<=>leftpos(b)}.each {|arg| tip[leftpos(arg)..rightpos(arg)]="#{arg[:function]}(...)" if arg[:function]}
     tip = tip[leftpos(expr)..rightpos(expr)]
     # puts "  #{tip}"
     tip = "\"#{tip.gsub /"/, '\"'}\""
