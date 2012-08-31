@@ -359,6 +359,26 @@ def mass_used_label row
   end
 end
 
+def transport type, scenario
+  transport = @tables['Tier3TransportScenario']['data']
+  trow = transport.find {|trow| trow['Scenario'] == scenario}
+  if trow
+    return trow[type].my_value
+  else
+    return 0
+  end
+end
+
+def electric_grid location
+  table = @tables['Tier3ElectricGridData']['data']
+  trow = table.find {|trow| trow['Location'] == location}
+  if trow
+    return trow['kg CO2 / MJ'].my_value
+  else
+    return 0
+  end
+end
+
 def finishing type, row
   info = []
   steps = case type
@@ -376,6 +396,64 @@ def finishing type, row
   end
   info << "SUM #{type} Finishing Total"
   method info
+end
+
+def ghg_greige type, row
+  paragraph "Proportion GHG for Greige between Energy Grid and Fossil Fuel."
+  info = []
+  info << " Greige / Other"
+  info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
+  info << "#{row['Calculate Greige']=='True' ? 0.800 : 0.333} proportion"
+  info << "PRODUCT Greige Energy Grid"
+  method info
+
+  info = []
+  if row['Calculate Greige'] == 'True' and name(@material) =~ / fabric$/i
+    info << " Greige / Other"
+    info << "0.065 Fossil Fuel CO2/MJ"
+    info << "#{row['Calculate Greige']=='True' ? 0.200 : 0.666} proportion"
+    info << "PRODUCT Greige Fossil Fuel"
+  else
+    info << "0 Greige Fossil Fuel"
+  end
+  method info
+end
+
+def ghg_dyeing_and_finishing type, row
+  paragraph "Proportion GHG for Dyeing and Finishing between Energy Grid and Fossil Fuel."
+  info = []
+  info << " Dyeing and Finishing"
+  info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
+  info << "0.333 proportion"
+  info << "PRODUCT Dyeing and Finishing Energy Grid"
+  method info
+
+  info = []
+  if row['Calculate Dyeing Finishing'].my_value == 'True' and name(@material) =~ / fabric$/i
+    info << " Dyeing and Finishing"
+    info << "0.065 Fossil Fuel CO2/MJ"
+    info << "0.666 proportion"
+    info << "PRODUCT Dyeing and Finishing Fossil Fuel"
+  else
+    info << "0 Dyeing and Finishing Fossil Fuel"
+  end
+  method info
+end
+
+def ghg_finishing type, row
+
+  ghg_greige type, row
+  ghg_dyeing_and_finishing type, row
+  paragraph "Now we sum for greige, transport, dyeing and finishing."
+  info = []
+  info << " Greige Energy Grid"
+  info << " Greige Fossil Fuel"
+  info << "#{transport 'GHG', row['Greige Transport']} Greige Transport"
+  info << " Dyeing and Finishing Energy Grid"
+  info << " Dyeing and Finishing Fossil Fuel"
+  info << "SUM #{type} Finishing Total"
+  method info
+
 end
 
 def processing type, row
@@ -396,7 +474,7 @@ def processing type, row
     info << "PRODUCT Mass Input Phase #{row['Phase']}"
   end
   method info
-  paragraph "We comput the quantity of stuff required by that phase"
+  paragraph "Now, knowing the input required of each phase, we compute mass related quantities."
   rows.each do |row|
     info = []
     default = 0
@@ -406,15 +484,135 @@ def processing type, row
     if type == 'Energy' && !empty(row['Transport Scenario'])
       transport = @tables['Tier3TransportScenario']['data']
       trow = transport.find {|trow| trow['Scenario'] == row['Transport Scenario']}
-      puts [@material, type, row['Phase'], row['Transport Scenario'], trow['Description']].inspect
-      info << "#{trow[type].my_value} #{trow['Description']}"
+      info << "#{trow[type].my_value} #{trow['Description']} Transport"
       info << "SUM #{mass_used_label row}"
     end
-    # info << "PRODUCT Mass used of #{row ['Phase Name']}"
     method info
   end
   info = []
   paragraph "Now we add up the mass used in each phase."
+  rows.each do |row|
+    info << " #{mass_used_label row}"
+  end
+  info << "SUM #{type} Process Total"
+  method info
+end
+
+# [@[grid GHG]]
+#  =SUM(IF([@[GHG Gridsource]]=Tier3ElectricGridData[Location],Tier3ElectricGridData[kg CO2 / MJ])
+#
+# [@[Electric Grid]]
+#  =IF(
+#   [@[Calculate GHG]]
+#   ,
+#    IF(
+#     [@Phase]=-1
+#     ,
+#      [@[Material loss % or Allocation %]]
+#      *
+#      [@[Kg per Unit]]
+#      *
+#      @[Mass Needed]]
+#     ,
+#      (
+#       [@[Type per Phase]]
+#       -
+#       [@[Transport Contribution]]
+#      )
+#      *
+#      [@[grid GHG]]
+#      *
+#      [@[Electric Grid Multiplier]]
+#    )
+#   ,
+#    ""
+#  )
+#
+# [@[Fossil Fuels]]
+#  =IF(
+#   [@[Calculate GHG]]
+#   ,
+#    (
+#     [@[Type per Phase]]
+#     -
+#     [@[Transport Contribution]]
+#    )
+#    *
+#    DieselKgCO2perMJ
+#    *
+#    [@[Fossil Fuel Multiplier]]
+#   ,
+#    ""
+#  )
+#
+#
+# GHG Subtotal
+# =
+# ([@[Calculate GHG]]=TRUE)
+# *
+# SUM(
+#  [@[Electric Grid]],
+#  [@[Fossil Fuels]]
+# )
+# +
+#  OR(
+#   ([@Phase]=0),
+#   ([@[Designated Value]]<>"")
+#  )
+# *
+#  [@[Designated Value]]
+# +
+#  [@[GHG Transport Contribution]]
+#
+
+def ghg_processing type, row
+  process = @tables['Tier3ProcessInformation']['data']
+  rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == 'Energy'}.sort_by{|row| row['Phase']}.reverse
+  paragraph "Now, for every phase."
+  paragraph "WIP ghg processing"
+  rows.each do |row|
+    # paragraph "calculate ghg: #{row['Calculate GHG']}, designated: #{row['Designated Value']}, phase: #{row['Phase']}, grid: #{row['Electric Grid'].my_value}, fossil: #{row['Fossil Fuels'].my_value}"
+    paragraph "Phase #{row['Phase']}, Grid Source: '#{row['GHG Gridsource'].my_value}'"
+
+
+    info = []
+    info2 = []
+    info_sub = []
+    if !empty(row['Designated Value'])
+      info << "#{row['Designated Value'].my_value} Electric Grid"
+    else
+      if row['Calculate GHG'] == 'True'
+        info << " #{mass_used_label row}"
+        info << "-#{transport 'Energy', row['Transport Scenario']} Energy Transport"
+        info << "SUM Mass Without Transport (Phase #{row['Phase']})"
+        info << "#{electric_grid row['GHG Gridsource'].my_value} Electric Grid"
+        info << "#{row['Electric Grid Multiplier'].my_value} Electric Grid Multiplier"
+        info << "PRODUCT Electric Grid (Phase #{row['Phase']})"
+
+        # =IF([@[Calculate GHG]],([@[Type per Phase]]-[@[Transport Contribution]])*DieselKgCO2perMJ*[@[Fossil Fuel Multiplier]],"")
+
+        info2 << " Mass Without Transport (Phase #{row['Phase']})"
+        info2 << "0.075 Diesel Kg CO2 / MJ"
+        info2 << "#{row['Fossil Fuel Multiplier'].my_value} Fossil Fuel Multiplier"
+        info2 << "PRODUCT Fossil Fuels (Phase #{row['Phase']})"
+
+      else
+        info << "0 Electric Grid (Phase #{row['Phase']})"
+        info2 << "0 Fossil Fuels (Phase #{row['Phase']})"
+      end
+      info_sub << " Electric Grid (Phase #{row['Phase']})"
+      info_sub << " Fossil Fuels (Phase #{row['Phase']})"
+      info_sub << "#{transport 'GHG', row['GHG Transport Scenario']} GHG Transport"
+      info_sub << "SUM GHG Subtotal (Phase #{row['Phase']})"
+    end
+    method info
+    method info2
+    method info_sub
+  end
+  paragraph "End WIP"
+
+  info = []
+  paragraph "Now we add up the GHG in Kg/MJ in each phase."
   rows.each do |row|
     info << " #{mass_used_label row}"
   end
@@ -446,14 +644,43 @@ def raw_score type, row
   method info
 end
 
+def ghg_raw_score type, row
+  info = []
+  if empty(row['Total']['formula'])
+    info << "#{row['Total'].my_value} #{type} Raw Score"
+  else
+    ghg_finishing type, row
+    ghg_processing type, row
+    paragraph "Now sum the finishing and processing"
+    info << " #{type} Process Total"
+    # Feedstock energy
+    if type == 'Energy'
+      info << "#{row['Feedstock']} Feedstock"
+      info << "SUM"
+    end
+    if name(@material) =~ / fabric$/i
+      info << "1.02 Fabric Add On"
+      info << "PRODUCT Adjusted #{type} Processing Total"
+    end
+    info << " #{type} Finishing Total"
+    info << "SUM #{type} Raw Score"
+  end
+  method info
+end
+
+
 def intensity type, row
-  raw_score type, row
+  if type == 'GHG'
+    ghg_raw_score type, row
+  else
+    raw_score type, row
+  end
   paragraph "And apply the appropriate polynomial"
   info = []
   info << " #{type} Raw Score"
   info << "POLYNOMIAL #{type} Intensity"
   weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|row| row['SubType'] == "#{type} Intensity"}['Points']
+  points = weightTable.find{|row| row['SubType'] == "#{type == 'GHG' ? 'GHG Emissions' : type} Intensity"}['Points']
   info << "#{known points} #{"#{type} Intensity"} Points"
   info << "PRODUCT #{"#{type} Intensity Score"}"
   method info
@@ -471,6 +698,13 @@ def energy_intensity
   data = @tables['Tier3EnergyData']['data']
   row = data.find {|row| row['Material'] == name(@material)}
   intensity 'Energy', row
+end
+
+def ghg_intensity
+  paragraph "<b> GHG"
+  data = @tables['Tier3GHGData']['data']
+  row = data.find {|row| row['Material'] == name(@material)}
+  intensity 'GHG', row
 end
 
 def land_intensity
@@ -630,11 +864,12 @@ def describe_each_material
 
       fold 'energy/ghg' do
         energy_intensity
+        ghg_intensity
         paragraph "And sum Energy and GHG Emissions."
         total 'Energy / GHG Emissions Intensity Total' do
           table 'Tier1MSISummary' do
             recall 'Energy Intensity Score'
-            field 'GHG Emissions Intensity'
+            recall 'GHG Emissions Intensity'
           end
         end
         table 'Tier3MaterialData' do
