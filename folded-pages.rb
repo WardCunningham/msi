@@ -163,7 +163,7 @@ def fold text
 end
 
 def method lines, options={}
-  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid}.merge(options)
+  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid}.merge(options) unless lines.empty?
 end
 
 def page title
@@ -498,74 +498,7 @@ def processing type, row
   method info
 end
 
-# [@[grid GHG]]
-#  =SUM(IF([@[GHG Gridsource]]=Tier3ElectricGridData[Location],Tier3ElectricGridData[kg CO2 / MJ])
-#
-# [@[Electric Grid]]
-#  =IF(
-#   [@[Calculate GHG]]
-#   ,
-#    IF(
-#     [@Phase]=-1
-#     ,
-#      [@[Material loss % or Allocation %]]
-#      *
-#      [@[Kg per Unit]]
-#      *
-#      @[Mass Needed]]
-#     ,
-#      (
-#       [@[Type per Phase]]
-#       -
-#       [@[Transport Contribution]]
-#      )
-#      *
-#      [@[grid GHG]]
-#      *
-#      [@[Electric Grid Multiplier]]
-#    )
-#   ,
-#    ""
-#  )
-#
-# [@[Fossil Fuels]]
-#  =IF(
-#   [@[Calculate GHG]]
-#   ,
-#    (
-#     [@[Type per Phase]]
-#     -
-#     [@[Transport Contribution]]
-#    )
-#    *
-#    DieselKgCO2perMJ
-#    *
-#    [@[Fossil Fuel Multiplier]]
-#   ,
-#    ""
-#  )
-#
-#
-# GHG Subtotal
-# =
-# ([@[Calculate GHG]]=TRUE)
-# *
-# SUM(
-#  [@[Electric Grid]],
-#  [@[Fossil Fuels]]
-# )
-# +
-#  OR(
-#   ([@Phase]=0),
-#   ([@[Designated Value]]<>"")
-#  )
-# *
-#  [@[Designated Value]]
-# +
-#  [@[GHG Transport Contribution]]
-#
-
-def ghg_processing type, row
+def ghg_processing type, xrow
   process = @tables['Tier3ProcessInformation']['data']
   rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == 'Energy'}.sort_by{|row| row['Phase']}.reverse
   paragraph "Now, for every phase."
@@ -579,7 +512,7 @@ def ghg_processing type, row
     info2 = []
     info_sub = []
     if !empty(row['Designated Value'])
-      info << "#{row['Designated Value'].my_value} Electric Grid"
+      info_sub << "#{row['Designated Value'].my_value} #{mass_used_label row}"
     else
       if row['Calculate GHG'] == 'True'
         info << " #{mass_used_label row}"
@@ -588,8 +521,6 @@ def ghg_processing type, row
         info << "#{electric_grid row['GHG Gridsource'].my_value} Electric Grid"
         info << "#{row['Electric Grid Multiplier'].my_value} Electric Grid Multiplier"
         info << "PRODUCT Electric Grid (Phase #{row['Phase']})"
-
-        # =IF([@[Calculate GHG]],([@[Type per Phase]]-[@[Transport Contribution]])*DieselKgCO2perMJ*[@[Fossil Fuel Multiplier]],"")
 
         info2 << " Mass Without Transport (Phase #{row['Phase']})"
         info2 << "0.075 Diesel Kg CO2 / MJ"
@@ -603,7 +534,7 @@ def ghg_processing type, row
       info_sub << " Electric Grid (Phase #{row['Phase']})"
       info_sub << " Fossil Fuels (Phase #{row['Phase']})"
       info_sub << "#{transport 'GHG', row['GHG Transport Scenario']} GHG Transport"
-      info_sub << "SUM GHG Subtotal (Phase #{row['Phase']})"
+      info_sub << "SUM #{mass_used_label row}"
     end
     method info
     method info2
@@ -616,6 +547,8 @@ def ghg_processing type, row
   rows.each do |row|
     info << " #{mass_used_label row}"
   end
+
+  info << "-#{xrow['Carbon Sequestration'].my_value} Carbon Sequestration"
   info << "SUM #{type} Process Total"
   method info
 end
@@ -672,17 +605,19 @@ end
 def intensity type, row
   if type == 'GHG'
     ghg_raw_score type, row
+    long = 'GHG Emissions'
   else
     raw_score type, row
+    long = type
   end
   paragraph "And apply the appropriate polynomial"
   info = []
   info << " #{type} Raw Score"
-  info << "POLYNOMIAL #{type} Intensity"
+  info << "POLYNOMIAL #{long} Intensity"
   weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|row| row['SubType'] == "#{type == 'GHG' ? 'GHG Emissions' : type} Intensity"}['Points']
+  points = weightTable.find{|row| row['SubType'] == "#{long} Intensity"}['Points']
   info << "#{known points} #{"#{type} Intensity"} Points"
-  info << "PRODUCT #{"#{type} Intensity Score"}"
+  info << "PRODUCT #{"#{long} Intensity"}"
   method info
 end
 
@@ -868,7 +803,7 @@ def describe_each_material
         paragraph "And sum Energy and GHG Emissions."
         total 'Energy / GHG Emissions Intensity Total' do
           table 'Tier1MSISummary' do
-            recall 'Energy Intensity Score'
+            recall 'Energy Intensity'
             recall 'GHG Emissions Intensity'
           end
         end
