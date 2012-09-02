@@ -163,7 +163,10 @@ def fold text
 end
 
 def method lines, options={}
-  @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid}.merge(options) unless lines.empty?
+  unless lines.empty?
+    file, line = caller[0].match(/\/([\w.-]+?):(\d+):/).captures
+    @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid, 'source' => {'file' => file, 'line' => line.to_i}}.merge(options)
+  end
 end
 
 def page title
