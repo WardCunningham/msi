@@ -98,6 +98,14 @@ class NilClass
   end
 end
 
+class Array
+  def meth
+    info = MethodPlugin.new self
+    yield info
+    info.calc
+  end
+end
+
 def empty string
   return true unless string
   string.strip == ''
@@ -169,6 +177,10 @@ def method lines, options={}
   end
 end
 
+def emit object
+  @story << object
+end
+
 def page title
   @story = []
   yield
@@ -185,6 +197,24 @@ def page title
   end
   File.open("../pages/#{slug(title)}", 'w') do |file|
     file.write JSON.pretty_generate(page)
+  end
+end
+
+class MethodPlugin
+  def initialize story
+    @info = []
+    @story = story
+  end
+  def tally frame
+    @file, @line = frame.match(/\/([\w.-]+?):(\d+):/).captures
+    @start ||= @line
+  end
+  def << string
+    tally caller[0]
+    @info << string
+  end
+  def calc options={}
+    @story << {'type' => 'method', 'text' => @info.join("\n"), 'id' => guid, 'source' => {'file' => @file, 'from' => @start.to_i, 'to' => @line.to_i} }.merge(options)
   end
 end
 
@@ -751,6 +781,12 @@ def describe_each_material
         field 'Material Sources'
       end
       paragraph 'Try visualizing with the [[D3 Radar Chart]].'
+
+      @story.meth do |simp|
+        simp << "5"
+        simp << "9"
+        simp << "SUM"
+      end
 
       fold 'reference data' do
 
