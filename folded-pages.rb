@@ -613,7 +613,7 @@ def intensity type, row
   paragraph "And apply the appropriate polynomial"
   info = []
   info << " #{type} Raw Score"
-  info << "POLYNOMIAL #{long} Intensity"
+  info << "POLYNOMIAL #{long} Intensity Scaled"
   weightTable = @tables['Tier3WeightTable']['data']
   points = weightTable.find{|row| row['SubType'] == "#{long} Intensity"}['Points']
   info << "#{known points} #{"#{type} Intensity"} Points"
@@ -651,7 +651,7 @@ def land_intensity
   paragraph "We specify a quantitity and apply the appropriate polynomial"
   info = []
   info << "#{row['Total']} Raw Land Data"
-  info << "POLYNOMIAL Land Intensity"
+  info << "POLYNOMIAL Land Intensity Scaled"
   weightTable = @tables['Tier3WeightTable']['data']
   points = weightTable.find{|row| row['SubType'] == "Land Intensity"}['Points']
   info << "#{known points} #{"Land Intensity"} Points"
@@ -673,7 +673,7 @@ def physical_waste indicator, short
       info << "#{source['Totals'].my_value} #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
     end
     info << "SUM"
-    info << "POLYNOMIAL #{indicator}"
+    info << "POLYNOMIAL #{indicator} Scaled"
   end
   weightTable = @tables['Tier3WeightTable']['data']
   points = weightTable.find{|row| row['SubType'] == indicator}['Points']
@@ -725,7 +725,6 @@ end
 
 def describe_each_material
   materials.each do |material|
-    # puts "'#{material}'"
     @material = material
     page name(material) do
       record "Material Summary" do
