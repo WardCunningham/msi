@@ -99,10 +99,10 @@ class NilClass
 end
 
 class Array
-  def meth
+  def meth options={}
     info = MethodPlugin.new self
     yield info
-    info.calc
+    info.calc options
   end
 end
 
@@ -336,18 +336,18 @@ def chemistry_substance row, category
   end
   paragraph "#{row['Substance']} Phase #{row['Phase']} #{short_category} score:"
   processes = ['Fiber / Subcomponent', 'Refinery Processing to Pellet', 'Textile / Component']
-  info = []
-  processes.each do |process|
-    info << "#{row[process].my_value} #{process}" if row[process] != ''
+  @story.meth({:silent=>true}) do |info|
+    processes.each do |process|
+      info << "#{row[process].my_value} #{process}" if row[process] != ''
+    end
+    info << "FIRST Exposure"
+    info << "#{known row[short_category]} Raw"
+    info << "LOOKUP Tier3ExposurePercentages"
+    weightTable = @tables['Tier3WeightTable']['data']
+    points = weightTable.find{|r| r['SubType'] == long_category}['Points']
+    info << "#{known points} #{long_category} Points"
+    info << "PRODUCT #{row['Substance']}"
   end
-  info << "FIRST Exposure"
-  info << "#{known row[short_category]} Raw"
-  info << "LOOKUP Tier3ExposurePercentages"
-  weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|r| r['SubType'] == long_category}['Points']
-  info << "#{known points} #{long_category} Points"
-  info << "PRODUCT #{row['Substance']}"
-  method info, {:silent=>true}
 end
 
 def chemistry_phase category, phase
@@ -413,64 +413,64 @@ def electric_grid location
 end
 
 def finishing type, row
-  info = []
-  steps = case type
-  when 'Water' then ['Greige / Other', 'Desizing', 'Scouring / Washing', 'Bleaching', 'Fulling', 'Mercerization', 'Dyeing', 'Printing', 'Rinsing / Finishing']
-  when 'Energy' then ['Greige / Other', 'Dyeing and Finishing', 'Other']
-  else
-    trouble "Don't know type #{type}"
-  end
-  steps.each do |col|
-    if empty(row[col].my_value)
-      info << "0 #{col}"
+  @story.meth do |info|
+    steps = case type
+    when 'Water' then ['Greige / Other', 'Desizing', 'Scouring / Washing', 'Bleaching', 'Fulling', 'Mercerization', 'Dyeing', 'Printing', 'Rinsing / Finishing']
+    when 'Energy' then ['Greige / Other', 'Dyeing and Finishing', 'Other']
     else
-      info << "#{row[col].my_value} #{col}"
+      trouble "Don't know type #{type}"
     end
+    steps.each do |col|
+      if empty(row[col].my_value)
+        info << "0 #{col}"
+      else
+        info << "#{row[col].my_value} #{col}"
+      end
+    end
+    info << "SUM #{type} Finishing Total"
   end
-  info << "SUM #{type} Finishing Total"
-  method info
 end
 
 def ghg_greige type, row
   paragraph "Proportion GHG for Greige between Energy Grid and Fossil Fuel."
-  info = []
-  info << " Greige / Other"
-  info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
-  info << "#{row['Calculate Greige']=='True' ? 0.800 : 0.333} proportion"
-  info << "PRODUCT Greige Energy Grid"
-  method info
-
-  info = []
-  if row['Calculate Greige'] == 'True' and name(@material) =~ / fabric$/i
+  @story.meth do |info|
     info << " Greige / Other"
-    info << "0.065 Fossil Fuel CO2/MJ"
-    info << "#{row['Calculate Greige']=='True' ? 0.200 : 0.666} proportion"
-    info << "PRODUCT Greige Fossil Fuel"
-  else
-    info << "0 Greige Fossil Fuel"
+    info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
+    info << "#{row['Calculate Greige']=='True' ? 0.800 : 0.333} proportion"
+    info << "PRODUCT Greige Energy Grid"
   end
-  method info
+
+  @story.meth do |info|
+    if row['Calculate Greige'] == 'True' and name(@material) =~ / fabric$/i
+      info << " Greige / Other"
+      info << "0.065 Fossil Fuel CO2/MJ"
+      info << "#{row['Calculate Greige']=='True' ? 0.200 : 0.666} proportion"
+      info << "PRODUCT Greige Fossil Fuel"
+    else
+      info << "0 Greige Fossil Fuel"
+    end
+  end
 end
 
 def ghg_dyeing_and_finishing type, row
   paragraph "Proportion GHG for Dyeing and Finishing between Energy Grid and Fossil Fuel."
-  info = []
-  info << " Dyeing and Finishing"
-  info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
-  info << "0.333 proportion"
-  info << "PRODUCT Dyeing and Finishing Energy Grid"
-  method info
-
-  info = []
-  if row['Calculate Dyeing Finishing'].my_value == 'True' and name(@material) =~ / fabric$/i
+  @story.meth do |info|
     info << " Dyeing and Finishing"
-    info << "0.065 Fossil Fuel CO2/MJ"
-    info << "0.666 proportion"
-    info << "PRODUCT Dyeing and Finishing Fossil Fuel"
-  else
-    info << "0 Dyeing and Finishing Fossil Fuel"
+    info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
+    info << "0.333 proportion"
+    info << "PRODUCT Dyeing and Finishing Energy Grid"
   end
-  method info
+
+  @story.meth do |info|
+    if row['Calculate Dyeing Finishing'].my_value == 'True' and name(@material) =~ / fabric$/i
+      info << " Dyeing and Finishing"
+      info << "0.065 Fossil Fuel CO2/MJ"
+      info << "0.666 proportion"
+      info << "PRODUCT Dyeing and Finishing Fossil Fuel"
+    else
+      info << "0 Dyeing and Finishing Fossil Fuel"
+    end
+  end
 end
 
 def ghg_finishing type, row
@@ -478,57 +478,57 @@ def ghg_finishing type, row
   ghg_greige type, row
   ghg_dyeing_and_finishing type, row
   paragraph "Now we sum for greige, transport, dyeing and finishing."
-  info = []
-  info << " Greige Energy Grid"
-  info << " Greige Fossil Fuel"
-  info << "#{transport 'GHG', row['Greige Transport']} Greige Transport"
-  info << " Dyeing and Finishing Energy Grid"
-  info << " Dyeing and Finishing Fossil Fuel"
-  info << "SUM #{type} Finishing Total"
-  method info
+  @story.meth do |info|
+    info << " Greige Energy Grid"
+    info << " Greige Fossil Fuel"
+    info << "#{transport 'GHG', row['Greige Transport']} Greige Transport"
+    info << " Dyeing and Finishing Energy Grid"
+    info << " Dyeing and Finishing Fossil Fuel"
+    info << "SUM #{type} Finishing Total"
+  end
 
 end
 
 def processing type, row
   process = @tables['Tier3ProcessInformation']['data']
-  info = []
-  info << "1 Kg Output"
   rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == type}.sort_by{|row| row['Phase']}.reverse
-  paragraph "We compute the mass required at each phase to yield one Kg of material after all phases."
-  paragraph "Note: adjustment is allocation for Phase 0, material loss % for other Phases."
-  rows.each do |row|
-    paragraph "#{row['Phase']} (#{row['Phase Name']}) #{row['Material loss % or Allocation %']} loss #{row['Kg per Unit']} Kg/Unit"
-    if row['Phase'] == '0'
-      loss_adjustment = row['Material loss % or Allocation %']
-    else
-      loss_adjustment = 1/(1-row['Material loss % or Allocation %'].to_f)
+  @story.meth do |info|
+    info << "1 Kg Output"
+    paragraph "We compute the mass required at each phase to yield one Kg of material after all phases."
+    paragraph "Note: adjustment is allocation for Phase 0, material loss % for other Phases."
+    rows.each do |row|
+      paragraph "#{row['Phase']} (#{row['Phase Name']}) #{row['Material loss % or Allocation %']} loss #{row['Kg per Unit']} Kg/Unit"
+      if row['Phase'] == '0'
+        loss_adjustment = row['Material loss % or Allocation %']
+      else
+        loss_adjustment = 1/(1-row['Material loss % or Allocation %'].to_f)
+      end
+      info << "#{loss_adjustment} adjustment for loss in #{row['Phase Name']}"
+      info << "PRODUCT Mass Input Phase #{row['Phase']}"
     end
-    info << "#{loss_adjustment} adjustment for loss in #{row['Phase Name']}"
-    info << "PRODUCT Mass Input Phase #{row['Phase']}"
   end
-  method info
   paragraph "Now, knowing the input required of each phase, we compute mass related quantities."
   rows.each do |row|
-    info = []
-    default = 0
-    info << "#{empty(row['Kg per Unit']) ? default : row['Kg per Unit']} Kg per Unit for #{row['Phase Name']}"
-    info << " Mass Input Phase #{row['Phase']}"
-    info << "PRODUCT #{mass_used_label row}"
-    if type == 'Energy' && !empty(row['Transport Scenario'])
-      transport = @tables['Tier3TransportScenario']['data']
-      trow = transport.find {|trow| trow['Scenario'] == row['Transport Scenario']}
-      info << "#{trow[type].my_value} #{trow['Description']} Transport"
-      info << "SUM #{mass_used_label row}"
+    @story.meth do |info|
+      default = 0
+      info << "#{empty(row['Kg per Unit']) ? default : row['Kg per Unit']} Kg per Unit for #{row['Phase Name']}"
+      info << " Mass Input Phase #{row['Phase']}"
+      info << "PRODUCT #{mass_used_label row}"
+      if type == 'Energy' && !empty(row['Transport Scenario'])
+        transport = @tables['Tier3TransportScenario']['data']
+        trow = transport.find {|trow| trow['Scenario'] == row['Transport Scenario']}
+        info << "#{trow[type].my_value} #{trow['Description']} Transport"
+        info << "SUM #{mass_used_label row}"
+      end
     end
-    method info
   end
-  info = []
-  paragraph "Now we add up the mass used in each phase."
-  rows.each do |row|
-    info << " #{mass_used_label row}"
+  @story.meth do |info|
+    paragraph "Now we add up the mass used in each phase."
+    rows.each do |row|
+      info << " #{mass_used_label row}"
+    end
+    info << "SUM #{type} Process Total"
   end
-  info << "SUM #{type} Process Total"
-  method info
 end
 
 def ghg_processing type, xrow
@@ -541,97 +541,97 @@ def ghg_processing type, xrow
     paragraph "Phase #{row['Phase']}, Grid Source: '#{row['GHG Gridsource'].my_value}'"
 
 
-    info = []
-    info2 = []
-    info_sub = []
-    if !empty(row['Designated Value'])
-      info_sub << "#{row['Designated Value'].my_value} #{mass_used_label row}"
-    else
-      if row['Calculate GHG'] == 'True'
-        info << " #{mass_used_label row}"
-        info << "-#{transport 'Energy', row['Transport Scenario']} Energy Transport"
-        info << "SUM Mass Without Transport (Phase #{row['Phase']})"
-        info << "#{electric_grid row['GHG Gridsource'].my_value} Electric Grid"
-        info << "#{row['Electric Grid Multiplier'].my_value} Electric Grid Multiplier"
-        info << "PRODUCT Electric Grid (Phase #{row['Phase']})"
-
-        info2 << " Mass Without Transport (Phase #{row['Phase']})"
-        info2 << "0.075 Diesel Kg CO2 / MJ"
-        info2 << "#{row['Fossil Fuel Multiplier'].my_value} Fossil Fuel Multiplier"
-        info2 << "PRODUCT Fossil Fuels (Phase #{row['Phase']})"
-
+    @story.meth do |info|
+    @story.meth do |info2|
+    @story.meth do |info_sub|
+      if !empty(row['Designated Value'])
+        info_sub << "#{row['Designated Value'].my_value} #{mass_used_label row}"
       else
-        info << "0 Electric Grid (Phase #{row['Phase']})"
-        info2 << "0 Fossil Fuels (Phase #{row['Phase']})"
+        if row['Calculate GHG'] == 'True'
+          info << " #{mass_used_label row}"
+          info << "-#{transport 'Energy', row['Transport Scenario']} Energy Transport"
+          info << "SUM Mass Without Transport (Phase #{row['Phase']})"
+          info << "#{electric_grid row['GHG Gridsource'].my_value} Electric Grid"
+          info << "#{row['Electric Grid Multiplier'].my_value} Electric Grid Multiplier"
+          info << "PRODUCT Electric Grid (Phase #{row['Phase']})"
+
+          info2 << " Mass Without Transport (Phase #{row['Phase']})"
+          info2 << "0.075 Diesel Kg CO2 / MJ"
+          info2 << "#{row['Fossil Fuel Multiplier'].my_value} Fossil Fuel Multiplier"
+          info2 << "PRODUCT Fossil Fuels (Phase #{row['Phase']})"
+
+        else
+          info << "0 Electric Grid (Phase #{row['Phase']})"
+          info2 << "0 Fossil Fuels (Phase #{row['Phase']})"
+        end
+        info_sub << " Electric Grid (Phase #{row['Phase']})"
+        info_sub << " Fossil Fuels (Phase #{row['Phase']})"
+        info_sub << "#{transport 'GHG', row['GHG Transport Scenario']} GHG Transport"
+        info_sub << "SUM #{mass_used_label row}"
       end
-      info_sub << " Electric Grid (Phase #{row['Phase']})"
-      info_sub << " Fossil Fuels (Phase #{row['Phase']})"
-      info_sub << "#{transport 'GHG', row['GHG Transport Scenario']} GHG Transport"
-      info_sub << "SUM #{mass_used_label row}"
     end
-    method info
-    method info2
-    method info_sub
+    end
+    end
   end
   paragraph "End WIP"
 
-  info = []
-  paragraph "Now we add up the GHG in Kg/MJ in each phase."
-  rows.each do |row|
-    info << " #{mass_used_label row}"
-  end
+  @story.meth do |info|
+    paragraph "Now we add up the GHG in Kg/MJ in each phase."
+    rows.each do |row|
+      info << " #{mass_used_label row}"
+    end
 
-  info << "-#{xrow['Carbon Sequestration'].my_value} Carbon Sequestration"
-  info << "SUM #{type} Process Total"
-  method info
+    info << "-#{xrow['Carbon Sequestration'].my_value} Carbon Sequestration"
+    info << "SUM #{type} Process Total"
+  end
 end
 
 def raw_score type, row
-  info = []
-  if empty(row['Total']['formula'])
-    info << "#{row['Total'].my_value} #{type} Raw Score"
-  else
-    finishing type, row
-    processing type, row
-    paragraph "Now sum the finishing and processing"
-    info << " #{type} Process Total"
-    # Feedstock energy
-    if type == 'Energy'
-      info << "#{row['Feedstock']} Feedstock"
-      info << "SUM"
+  @story.meth do |info|
+    if empty(row['Total']['formula'])
+      info << "#{row['Total'].my_value} #{type} Raw Score"
+    else
+      finishing type, row
+      processing type, row
+      paragraph "Now sum the finishing and processing"
+      info << " #{type} Process Total"
+      # Feedstock energy
+      if type == 'Energy'
+        info << "#{row['Feedstock']} Feedstock"
+        info << "SUM"
+      end
+      if name(@material) =~ / fabric$/i
+        info << "1.02 Fabric Add On"
+        info << "PRODUCT Adjusted #{type} Processing Total"
+      end
+      info << " #{type} Finishing Total"
+      info << "SUM #{type} Raw Score"
     end
-    if name(@material) =~ / fabric$/i
-      info << "1.02 Fabric Add On"
-      info << "PRODUCT Adjusted #{type} Processing Total"
-    end
-    info << " #{type} Finishing Total"
-    info << "SUM #{type} Raw Score"
   end
-  method info
 end
 
 def ghg_raw_score type, row
-  info = []
-  if empty(row['Total']['formula'])
-    info << "#{row['Total'].my_value} #{type} Raw Score"
-  else
-    ghg_finishing type, row
-    ghg_processing type, row
-    paragraph "Now sum the finishing and processing"
-    info << " #{type} Process Total"
-    # Feedstock energy
-    if type == 'Energy'
-      info << "#{row['Feedstock']} Feedstock"
-      info << "SUM"
+  @story.meth do |info|
+    if empty(row['Total']['formula'])
+      info << "#{row['Total'].my_value} #{type} Raw Score"
+    else
+      ghg_finishing type, row
+      ghg_processing type, row
+      paragraph "Now sum the finishing and processing"
+      info << " #{type} Process Total"
+      # Feedstock energy
+      if type == 'Energy'
+        info << "#{row['Feedstock']} Feedstock"
+        info << "SUM"
+      end
+      if name(@material) =~ / fabric$/i
+        info << "1.02 Fabric Add On"
+        info << "PRODUCT Adjusted #{type} Processing Total"
+      end
+      info << " #{type} Finishing Total"
+      info << "SUM #{type} Raw Score"
     end
-    if name(@material) =~ / fabric$/i
-      info << "1.02 Fabric Add On"
-      info << "PRODUCT Adjusted #{type} Processing Total"
-    end
-    info << " #{type} Finishing Total"
-    info << "SUM #{type} Raw Score"
   end
-  method info
 end
 
 
@@ -644,14 +644,14 @@ def intensity type, row
     long = type
   end
   paragraph "And apply the appropriate polynomial"
-  info = []
-  info << " #{type} Raw Score"
-  info << "POLYNOMIAL #{long} Intensity Scaled"
-  weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|row| row['SubType'] == "#{long} Intensity"}['Points']
-  info << "#{known points} #{"#{type} Intensity"} Points"
-  info << "PRODUCT #{"#{long} Intensity"}"
-  method info
+  @story.meth do |info|
+    info << " #{type} Raw Score"
+    info << "POLYNOMIAL #{long} Intensity Scaled"
+    weightTable = @tables['Tier3WeightTable']['data']
+    points = weightTable.find{|row| row['SubType'] == "#{long} Intensity"}['Points']
+    info << "#{known points} #{"#{type} Intensity"} Points"
+    info << "PRODUCT #{"#{long} Intensity"}"
+  end
 end
 
 def water_intensity
@@ -677,42 +677,41 @@ end
 
 def land_intensity
   paragraph "<b> Land"
-  info = []
   land = @tables['Tier3LandData']['data']
   row = land.find {|row| row['Material'] == name(@material)}
 
   paragraph "We specify a quantitity and apply the appropriate polynomial"
-  info = []
-  info << "#{row['Total']} Raw Land Data"
-  info << "POLYNOMIAL Land Intensity Scaled"
-  weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|row| row['SubType'] == "Land Intensity"}['Points']
-  info << "#{known points} #{"Land Intensity"} Points"
-  info << "PRODUCT #{"Land Intensity Score"}"
-  method info
+  @story.meth do |info|
+    info << "#{row['Total']} Raw Land Data"
+    info << "POLYNOMIAL Land Intensity Scaled"
+    weightTable = @tables['Tier3WeightTable']['data']
+    points = weightTable.find{|row| row['SubType'] == "Land Intensity"}['Points']
+    info << "#{known points} #{"Land Intensity"} Points"
+    info << "PRODUCT #{"Land Intensity Score"}"
+  end
 end
 
 def physical_waste indicator, short
   paragraph "<b>#{indicator}"
-  info = []
-  other = @tables['Tier3OtherPhysicalWaste']['data']
-  estimate = other.find {|row| row['Material'] == name(@material)}
-  if estimate
-    info << "#{estimate[indicator].to_f / 100} #{indicator} Percentage"
-  else
-    waste = @tables['Tier3PhysicalWaste']['data']
-    sources = waste.select {|row| row['Material'] == name(@material) && row['Waste Type'] == short}
-    sources.each do |source|
-      info << "#{source['Totals'].my_value} #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
+  @story.meth({:silent=>true}) do |info|
+    other = @tables['Tier3OtherPhysicalWaste']['data']
+    estimate = other.find {|row| row['Material'] == name(@material)}
+    if estimate
+      info << "#{estimate[indicator].to_f / 100} #{indicator} Percentage"
+    else
+      waste = @tables['Tier3PhysicalWaste']['data']
+      sources = waste.select {|row| row['Material'] == name(@material) && row['Waste Type'] == short}
+      sources.each do |source|
+        info << "#{source['Totals'].my_value} #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
+      end
+      info << "SUM"
+      info << "POLYNOMIAL #{indicator} Scaled"
     end
-    info << "SUM"
-    info << "POLYNOMIAL #{indicator} Scaled"
+    weightTable = @tables['Tier3WeightTable']['data']
+    points = weightTable.find{|row| row['SubType'] == indicator}['Points']
+    info << "#{known points} #{indicator} Points"
+    info << "PRODUCT #{indicator}"
   end
-  weightTable = @tables['Tier3WeightTable']['data']
-  points = weightTable.find{|row| row['SubType'] == indicator}['Points']
-  info << "#{known points} #{indicator} Points"
-  info << "PRODUCT #{indicator}"
-  method info, {:silent=>true}
 end
 
 # page generators -- methods here have verb-phrase names
