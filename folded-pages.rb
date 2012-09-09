@@ -343,6 +343,7 @@ def chemistry_substance row, category
       info << "#{row[process].my_value} #{process}" if row[process] != ''
     end
     info << "FIRST Exposure"
+    paragraph "category: #{category}, short-category: #{short_category}, long-category: #{long_category}" ###
     info << "#{known row[short_category]} Raw"
     info << "LOOKUP Tier3ExposurePercentages"
     weightTable = @tables['Tier3WeightTable']['data']
@@ -499,7 +500,7 @@ def processing type, row
     paragraph "We compute the mass required at each phase to yield one Kg of material after all phases."
     paragraph "Note: adjustment is allocation for Phase 0, material loss % for other Phases."
     rows.each do |row|
-      paragraph "#{row['Phase']} (#{row['Phase Name']}) #{row['Material loss % or Allocation %']} loss #{row['Kg per Unit']} Kg/Unit"
+      ### paragraph "#{row['Phase']} (#{row['Phase Name']}) #{row['Material loss % or Allocation %']} loss #{row['Kg per Unit']} Kg/Unit"
       if row['Phase'] == '0'
         loss_adjustment = row['Material loss % or Allocation %']
       else
