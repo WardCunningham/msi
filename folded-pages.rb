@@ -172,6 +172,7 @@ end
 
 def method lines, options={}
   unless lines.empty?
+    trouble "blank method" if empty(lines.join(""))
     file, line = caller[0].match(/\/([\w.-]+?):(\d+):/).captures
     @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid, 'source' => {'file' => file, 'line' => line.to_i}}.merge(options)
   end
@@ -541,9 +542,9 @@ def ghg_processing type, xrow
     paragraph "Phase #{row['Phase']}, Grid Source: '#{row['GHG Gridsource'].my_value}'"
 
 
-    @story.meth do |info|
-    @story.meth do |info2|
     @story.meth do |info_sub|
+    @story.meth do |info2|
+    @story.meth do |info|
       if !empty(row['Designated Value'])
         info_sub << "#{row['Designated Value'].my_value} #{mass_used_label row}"
       else
@@ -687,7 +688,7 @@ def land_intensity
     weightTable = @tables['Tier3WeightTable']['data']
     points = weightTable.find{|row| row['SubType'] == "Land Intensity"}['Points']
     info << "#{known points} #{"Land Intensity"} Points"
-    info << "PRODUCT #{"Land Intensity Score"}"
+    info << "PRODUCT #{"Land Intensity"}"
   end
 end
 
@@ -860,8 +861,8 @@ def describe_each_material
         paragraph "Now we sum the scores for both water and land."
         total 'Water / Land Intensity Total' do
           table 'Tier1MSISummary' do
-            recall 'Water Intensity Score'
-            recall 'Land Intensity Score'
+            recall 'Water Intensity'
+            recall 'Land Intensity'
           end
         end
         table 'Tier3MaterialData' do
