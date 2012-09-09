@@ -215,6 +215,7 @@ class MethodPlugin
     @info << string
   end
   def calc options={}
+    return if @info.empty?
     @story << {'type' => 'method', 'text' => @info.join("\n"), 'id' => guid, 'source' => {'file' => @file, 'from' => @start.to_i, 'to' => @line.to_i} }.merge(options)
   end
 end
@@ -562,11 +563,9 @@ def ghg_processing type, xrow
           info2 << "PRODUCT Fossil Fuels (Phase #{row['Phase']})"
 
         else
-          info << "0 Electric Grid (Phase #{row['Phase']})"
-          info2 << "0 Fossil Fuels (Phase #{row['Phase']})"
+          info_sub << "0 Electric Grid (Phase #{row['Phase']})"
+          info_sub << "0 Fossil Fuels (Phase #{row['Phase']})"
         end
-        info_sub << " Electric Grid (Phase #{row['Phase']})"
-        info_sub << " Fossil Fuels (Phase #{row['Phase']})"
         info_sub << "#{transport 'GHG', row['GHG Transport Scenario']} GHG Transport"
         info_sub << "SUM #{mass_used_label row}"
       end
