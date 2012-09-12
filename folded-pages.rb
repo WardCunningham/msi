@@ -433,14 +433,18 @@ def finishing type, row
     else
       trouble "Don't know type #{type}"
     end
-    steps.each do |col|
-      if empty(row[col].my_value)
-        info << "0 #{col}"
-      else
-        info << "#{row[col].my_value} #{col}"
+    if empty(row["#{type} Finishing Total"]['formula'])
+      info << "#{row["#{type} Finishing Total"].my_value} #{type} Finishing Total"
+    else
+      steps.each do |col|
+        if empty(row[col].my_value)
+          info << "0 #{col}"
+        else
+          info << "#{row[col].my_value} #{col}"
+        end
       end
+      info << "SUM #{type} Finishing Total"
     end
-    info << "SUM #{type} Finishing Total"
   end
 end
 
