@@ -576,7 +576,8 @@ def ghg_processing type, xrow
           info2 << "0.075 Diesel Kg CO2 / MJ"
           info2 << "#{row['Fossil Fuel Multiplier'].my_value} Fossil Fuel Multiplier"
           info2 << "PRODUCT Fossil Fuels (Phase #{row['Phase']})"
-
+          info_sub << " Electric Grid (Phase #{row['Phase']})"
+          info_sub << " Fossil Fuels (Phase #{row['Phase']})"
         else
           info_sub << "0 Electric Grid (Phase #{row['Phase']})"
           info_sub << "0 Fossil Fuels (Phase #{row['Phase']})"
