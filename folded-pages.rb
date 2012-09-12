@@ -124,6 +124,10 @@ def name material
   @materials['Tier1MSISummary'][material]['Material']
 end
 
+def fabric material
+  name(material) =~ / fabric\b/i
+end
+
 def rank material
   @materials['Tier1MSISummary'][material]['Rank'].my_value
 end
@@ -465,7 +469,7 @@ def ghg_dyeing_and_finishing type, row
   end
 
   @story.meth do |info|
-    if row['Calculate Dyeing Finishing'].my_value == 'True' and name(@material) =~ / fabric$/i
+    if row['Calculate Dyeing Finishing'].my_value == 'True' and fabric(@material)
       info << " Dyeing and Finishing"
       info << "0.065 Fossil Fuel CO2/MJ"
       info << "0.666 proportion"
@@ -601,7 +605,7 @@ def raw_score type, row
         info << "#{row['Feedstock']} Feedstock"
         info << "SUM"
       end
-      if name(@material) =~ / fabric$/i
+      if fabric(@material)
         info << "1.02 Fabric Add On"
         info << "PRODUCT Adjusted #{type} Processing Total"
       end
@@ -625,7 +629,7 @@ def ghg_raw_score type, row
         info << "#{row['Feedstock']} Feedstock"
         info << "SUM"
       end
-      if name(@material) =~ / fabric$/i
+      if fabric(@material)
         info << "1.02 Fabric Add On"
         info << "PRODUCT Adjusted #{type} Processing Total"
       end
@@ -736,11 +740,11 @@ def list_all_materials
     paragraph "See also [[Materials by Rank]]."
     paragraph "<h3>Fabrics Alphabetically"
     materials.each do |material|
-      paragraph "[[#{name material}]] ranked #{rank material}" if name(material) =~ / fabric/
+      paragraph "[[#{name material}]] ranked #{rank material}" if fabric(material)
     end
     paragraph "<h3>Other Materials Alphabetically"
     materials.each do |material|
-      paragraph "[[#{name material}]] ranked #{rank material}" unless name(material) =~ / fabric/
+      paragraph "[[#{name material}]] ranked #{rank material}" unless fabric(material)
     end
   end
   page 'Materials by Rank' do
