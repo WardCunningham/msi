@@ -354,7 +354,6 @@ def chemistry_substance row, category
       info << "#{row[process].my_value} #{process}" if row[process] != ''
     end
     info << "FIRST Exposure"
-    paragraph "category: #{category}, short-category: #{short_category}, long-category: #{long_category}" ###
     info << "#{known row[short_category]} Raw"
     info << "LOOKUP Tier3ExposurePercentages"
     weightTable = @tables['Tier3WeightTable']['data']
