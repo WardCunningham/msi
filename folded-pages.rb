@@ -515,12 +515,12 @@ def processing type, row
     paragraph "Note: adjustment is allocation for Phase 0, material loss % for other Phases."
     rows.each do |row|
       ### paragraph "#{row['Phase']} (#{row['Phase Name']}) #{row['Material loss % or Allocation %']} loss #{row['Kg per Unit']} Kg/Unit"
-      if row['Phase'] == '0'
-        loss_adjustment = row['Material loss % or Allocation %']
-      else
-        loss_adjustment = 1/(1-row['Material loss % or Allocation %'].to_f)
+      unless empty(row['Material loss % or Allocation %'])
+        unless row['Phase'] == '0'
+          loss_adjustment = 1/(1-row['Material loss % or Allocation %'].to_f)
+          info << "#{loss_adjustment} adjustment for loss in #{row['Phase Name']}"
+        end
       end
-      info << "#{loss_adjustment} adjustment for loss in #{row['Phase Name']}"
       info << "PRODUCT Mass Input Phase #{row['Phase']}"
     end
   end
