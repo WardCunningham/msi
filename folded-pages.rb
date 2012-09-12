@@ -718,10 +718,18 @@ def physical_waste indicator, short
     else
       waste = @tables['Tier3PhysicalWaste']['data']
       sources = waste.select {|row| row['Material'] == name(@material) && row['Waste Type'] == short}
-      sources.each do |source|
-        info << "#{source['Totals'].my_value} #{source['Solid Wastes']}" if source['Totals'].my_value != '0'
+      if sources.length == 1 and sources[0]['Totals'].my_value != '0' and empty(sources[0]['Solid Wastes'])
+        info << "#{sources[0]['Totals'].my_value} unspecified source"
+      else
+        sources.each do |source|
+          if source['Totals'].my_value != '0'
+            label = source['Solid Wastes']
+            label = 'unspecified source' if empty(label)
+            info << "#{source['Totals'].my_value} #{label}" 
+          end
+        end
+        info << "SUM"
       end
-      info << "SUM"
       info << "POLYNOMIAL #{indicator} Scaled"
     end
     weightTable = @tables['Tier3WeightTable']['data']
