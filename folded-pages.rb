@@ -177,8 +177,14 @@ end
 def method lines, options={}
   unless lines.empty?
     trouble "blank method" if empty(lines.join(""))
-    file, line = caller[0].match(/\/([\w.-]+?):(\d+):/).captures
-    @story << {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid, 'source' => {'file' => file, 'line' => line.to_i}}.merge(options)
+    item = {'type' => 'method', 'text' => lines.join("\n"), 'id' => guid,}.merge(options)
+    begin
+      file, line = caller[0].match(/\/([\w.-]+?):(\d+):/).captures
+      item.merge({'source' => {'file' => file, 'line' => line.to_i}})
+    rescue
+      trouble "can't figure out caller[0] == #{caller[0]}"
+    end
+    @story << item
   end
 end
 
