@@ -342,7 +342,8 @@ def chemistry_substance row, category
   end
   paragraph "#{row['Substance']} Phase #{row['Phase']} #{short_category} score:"
   processes = ['Fiber / Subcomponent', 'Refinery Processing to Pellet', 'Textile / Component']
-  @story.meth({:silent=>true}) do |info|
+  # @story.meth({:silent=>true}) do |info|
+  @story.meth() do |info|
     processes.each do |process|
       info << "#{row[process].my_value} #{process}" if row[process] != ''
     end
@@ -698,7 +699,8 @@ end
 
 def physical_waste indicator, short
   paragraph "<b>#{indicator}"
-  @story.meth({:silent=>true}) do |info|
+  # @story.meth({:silent=>true}) do |info|
+  @story.meth() do |info|
     other = @tables['Tier3OtherPhysicalWaste']['data']
     estimate = other.find {|row| row['Material'] == name(@material)}
     if estimate
