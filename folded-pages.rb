@@ -552,11 +552,8 @@ def ghg_processing type, xrow
   process = @tables['Tier3ProcessInformation']['data']
   rows = process.select{|row| row['Material'] == name(@material) && row['Process Type'] == 'Energy'}.sort_by{|row| row['Phase']}.reverse
   paragraph "Now, for every phase."
-  paragraph "WIP ghg processing"
   rows.each do |row|
-    # paragraph "calculate ghg: #{row['Calculate GHG']}, designated: #{row['Designated Value']}, phase: #{row['Phase']}, grid: #{row['Electric Grid'].my_value}, fossil: #{row['Fossil Fuels'].my_value}"
     paragraph "Phase #{row['Phase']}, Grid Source: '#{row['GHG Gridsource'].my_value}'"
-
 
     @story.meth do |info_sub|
     @story.meth do |info2|
@@ -589,7 +586,6 @@ def ghg_processing type, xrow
     end
     end
   end
-  paragraph "End WIP"
 
   @story.meth do |info|
     paragraph "Now we add up the GHG in Kg/MJ in each phase."
