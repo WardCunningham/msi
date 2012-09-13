@@ -449,21 +449,25 @@ def finishing type, row
 end
 
 def ghg_greige type, row
-  paragraph "Proportion GHG for Greige between Energy Grid and Fossil Fuel."
-  @story.meth do |info|
-    info << " Greige / Other"
-    info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
-    info << "#{row['Calculate Greige']=='True' ? 0.800 : 0.333} proportion"
-    info << "PRODUCT Greige Energy Grid"
-  end
-
-  @story.meth do |info|
-    if row['Calculate Greige'] == 'True' and name(@material) =~ / fabric$/i
+  if row['Calculate Greige'] == 'True'
+    paragraph "Proportion GHG for Greige between Energy Grid and Fossil Fuel."
+    energy_grid_factor, fossil_fuel_factor = fabric(@material) ? [0.8, 0.2] : [0.333, 0.666]
+    @story.meth do |info|
+      info << "#{energy_grid_factor} Energy Grid Factor"
       info << " Greige / Other"
-      info << "0.065 Fossil Fuel CO2/MJ"
-      info << "#{row['Calculate Greige']=='True' ? 0.200 : 0.666} proportion"
+      info << "0.065 kg CO2 / MJ"
+      info << "PRODUCT Greige Energy Grid"
+    end
+    @story.meth do |info|
+      info << "#{fossil_fuel_factor} Fossil Fuel Factor"
+      info << " Greige / Other"
+      info << "0.065 kg CO2 / MJ"
       info << "PRODUCT Greige Fossil Fuel"
-    else
+    end
+  else
+    paragraph "No GHG for Greige from Energy Grid or Fossil Fuel."
+    @story.meth do |info|
+      info << "0 Greige Energy Grid"
       info << "0 Greige Fossil Fuel"
     end
   end
@@ -492,15 +496,23 @@ end
 
 def ghg_finishing type, row
 
-  ghg_greige type, row
-  ghg_dyeing_and_finishing type, row
-  paragraph "Now we sum for greige, transport, dyeing and finishing."
   @story.meth do |info|
-    info << " Greige Energy Grid"
-    info << " Greige Fossil Fuel"
+    if empty(row['Greige Subtotal']['formula'])
+      info << "#{row['Greige Subtotal'].my_value} Designated Greige"
+    else
+      ghg_greige type, row
+      info << " Greige Energy Grid"
+      info << " Greige Fossil Fuel"
+    end
     info << "#{transport 'GHG', row['Greige Transport']} Greige Transport"
-    info << " Dyeing and Finishing Energy Grid"
-    info << " Dyeing and Finishing Fossil Fuel"
+    if empty(row['Dyeing and Finishing Subtotal']['formula'])
+      info << "#{row['Dyeing and Finishing Subtotal'].my_value} Designated Dyeing and Finishing"
+    else
+      ghg_dyeing_and_finishing type, row
+      info << " Dyeing and Finishing Energy Grid"
+      info << " Dyeing and Finishing Fossil Fuel"
+    end
+    paragraph "Now we sum for greige, transport, dyeing and finishing."
     info << "SUM #{type} Finishing Total"
   end
 
@@ -627,20 +639,23 @@ def ghg_raw_score type, row
     if empty(row['Total']['formula'])
       info << "#{row['Total'].my_value} #{type} Raw Score"
     else
-      ghg_finishing type, row
-      ghg_processing type, row
+      if empty(row["Process Total"]['formula'])
+        info << "#{row["Process Total"]} Designated Process Total"
+      else
+        ghg_processing type, row
+        info << " #{type} Process Total"
+        if fabric(@material)
+          info << "1.02 Fabric Add On"
+          info << "PRODUCT Adjusted #{type} Processing Total"
+        end
+      end
+      if empty(row["Finishing Total"]['formula'])
+        info << "#{row["Finishing Total"]} Designated Finishing Total"
+      else
+        ghg_finishing type, row
+        info << " #{type} Finishing Total"
+      end
       paragraph "Now sum the finishing and processing"
-      info << " #{type} Process Total"
-      # Feedstock energy
-      if type == 'Energy'
-        info << "#{row['Feedstock']} Feedstock"
-        info << "SUM"
-      end
-      if fabric(@material)
-        info << "1.02 Fabric Add On"
-        info << "PRODUCT Adjusted #{type} Processing Total"
-      end
-      info << " #{type} Finishing Total"
       info << "SUM #{type} Raw Score"
     end
   end
