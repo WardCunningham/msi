@@ -214,6 +214,7 @@ end
 class MethodPlugin
   def initialize story
     @info = []
+    @checks = {}
     @story = story
   end
   def tally frame
@@ -224,9 +225,21 @@ class MethodPlugin
     tally caller[0]
     @info << string
   end
+  def product label, check=nil
+    @info << "PRODUCT #{label}"
+    @checks[label] = check if check
+  end
+  def sum label, check=nil
+    @info << "SUM #{label}"
+    @checks[label] = check if check
+  end
   def calc options={}
     return if @info.empty?
-    @story << {'type' => 'method', 'text' => @info.join("\n"), 'id' => guid, 'source' => {'file' => @file, 'from' => @start.to_i, 'to' => @line.to_i} }.merge(options)
+    method = {'type' => 'method', 'text' => @info.join("\n"), 'id' => guid }
+    method.merge!(options)
+    method.merge!({:source => {'file' => @file, 'from' => @start.to_i, 'to' => @line.to_i}})
+    method.merge!({:checks => @checks}) unless @checks.empty?
+    @story << method
   end
 end
 
