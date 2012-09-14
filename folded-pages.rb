@@ -456,7 +456,7 @@ def finishing type, row
           info << "#{row[col].my_value} #{col}"
         end
       end
-      info << "SUM #{type} Finishing Total"
+      info.sum "#{type} Finishing Total"
     end
   end
 end
@@ -469,7 +469,7 @@ def ghg_greige type, row
       info << "#{energy_grid_factor} Energy Grid Factor"
       info << " Greige / Other"
       info << "0.065 kg CO2 / MJ"
-      info << "PRODUCT Greige Energy Grid"
+      info.product "Greige Energy Grid"
     end
     @story.meth do |info|
       info << "#{fossil_fuel_factor} Fossil Fuel Factor"
@@ -526,7 +526,7 @@ def ghg_finishing type, row
       info << " Dyeing and Finishing Fossil Fuel"
     end
     paragraph "Now we sum for greige, transport, dyeing and finishing."
-    info << "SUM #{type} Finishing Total"
+    info.sum "#{type} Finishing Total" #, row["#{type} Finishing Total"].my_value.to_f
   end
 
 end
@@ -605,7 +605,7 @@ def ghg_processing type, xrow
           info_sub << "0 Fossil Fuels (Phase #{row['Phase']})"
         end
         info_sub << "#{transport 'GHG', row['GHG Transport Scenario']} GHG Transport"
-        info_sub << "SUM #{mass_used_label row}"
+        info_sub.sum "#{mass_used_label row}", row['GHG Subtotal'].my_value
       end
     end
     end
@@ -630,7 +630,6 @@ def raw_score type, row
     else
       finishing type, row
       processing type, row
-      paragraph "Now sum the finishing and processing"
       info << " #{type} Process Total"
       # Feedstock energy
       if type == 'Energy'
@@ -642,7 +641,8 @@ def raw_score type, row
         info << "PRODUCT Adjusted #{type} Processing Total"
       end
       info << " #{type} Finishing Total"
-      info << "SUM #{type} Raw Score"
+      paragraph "Now sum the finishing and processing"
+      info.sum "#{type} Raw Score", row['Total'].my_value
     end
   end
 end
@@ -759,7 +759,8 @@ def physical_waste indicator, short
     weightTable = @tables['Tier3WeightTable']['data']
     points = weightTable.find{|row| row['SubType'] == indicator}['Points']
     info << "#{known points} #{indicator} Points"
-    info << "PRODUCT #{indicator}"
+    tier1 = @tables['Tier1MSISummary']['data'].find{|row|row['Material'] == name(@material)}
+    info.product "#{indicator}", tier1[indicator].my_value
   end
 end
 
