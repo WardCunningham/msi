@@ -378,14 +378,23 @@ end
 
 def chemistry_phase category, phase
   chemistryData = @tables['Tier3ChemistryData']['data']
+  substanceData = @tables['Tier3AllSubstanceData']['data']
   rows = chemistryData.select{|row|row['Material']==name(@material)&&row['Phase']==phase}
-  trouble "can't find any chemistry data for #{[@material, category, phase, rows.size].inspect}" if rows.size < 1
-  rows.each do |row|
-    # puts (['Material','Substance','Phase',category].collect{|k|row[k].my_value}.inspect) if row['Material'] == 'Glass fiber'
-    # value = row[category].my_value
-    # next if empty(value)
-    chemistry_substance row, category
-    @calculate << " #{row['Substance']}"
+  trouble "can't find any chemistry data for #{[@material, category, phase, rows.size].inspect}" if rows.length < 1
+  with_data = rows.select{|row| s = row['Substance'].downcase; !substanceData.find{|r| s == r['Substance']}.nil?}
+  if with_data.length == 0
+    rows.each do |row|
+      @calculate << "0 #{row['Substance']} (data unavailable)"
+    end
+  else
+    rows.each do |row|
+      if with_data.include? row
+        chemistry_substance row, category
+        @calculate << " #{row['Substance']}"
+      else
+        @calculate << "- #{row['Substance']} (data unavailable)"
+      end
+    end
   end
 end
 
