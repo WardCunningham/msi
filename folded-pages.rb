@@ -477,7 +477,7 @@ def ghg_greige type, row
     @story.meth do |info|
       info << "#{energy_grid_factor} Energy Grid Factor"
       info << " Greige / Other"
-      info << "0.065 kg CO2 / MJ"
+      info << "#{electric_grid row['Textile Location']} kg CO2 / MJ"
       info.product "Greige Energy Grid"
     end
     @story.meth do |info|
