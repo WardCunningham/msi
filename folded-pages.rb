@@ -758,10 +758,15 @@ def physical_waste indicator, short
           if source['Totals'].my_value != '0'
             label = source['Solid Wastes']
             label = 'unspecified source' if empty(label)
-            info << "#{source['Totals'].my_value} #{label}" 
+            # info << "#{source['Totals'].my_value} #{label}"
+            ["Fuel Use","Transport","Process","Fuel Production","Other"].each do |factor|
+              info << "#{source[factor]} #{factor} #{label}" unless empty(source[factor])
+            end
           end
         end
         info << "SUM"
+        info << "1.02 Adjustment"
+        info << "PRODUCT"
       end
       info << "POLYNOMIAL #{indicator} Scaled"
     end
