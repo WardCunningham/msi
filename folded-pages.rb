@@ -262,10 +262,12 @@ def record title
 end
 
 def dataset title
+  @columns = []
   @dataset = materials.inject({}) { |hash, key| hash[key]={'Material' => key}; hash }
   yield
   values = @dataset.values
-  data({'columns' => values.first.keys, 'data' => values}, title)
+  data({'columns' => @columns, 'data' => values}, title)
+  @columns = nil
   @dataset = nil
 end
 
@@ -279,6 +281,7 @@ end
 
 def field column
   # handle dataset
+  @columns << column if @columns
   return @dataset.each {|key,value| value[column] = @table[key][column]||''} unless @dataset.nil?
   row = @table[@material]
   trouble "No record for '#{@material}' in table '#{@table_name}'" if row.nil?
