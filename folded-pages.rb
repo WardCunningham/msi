@@ -845,12 +845,6 @@ def describe_each_material
       end
       paragraph 'Try visualizing with the [[D3 Radar Chart]].'
 
-      # @story.meth do |simp|
-      #   simp << "5"
-      #   simp << "9"
-      #   simp << "SUM"
-      # end
-
       fold 'reference data' do
 
         name = "Tier3ExposurePercentages"
