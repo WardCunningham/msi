@@ -10,8 +10,9 @@ puts "trouble-checks.txt: " + `tail -1 #{try}/Processed/trouble-checks.txt`
 puts `ruby formula-chart.rb > #{try}/Processed/trouble-chart.txt`
 puts "trouble-chart.txt: " + `tail -1 #{try}/Processed/trouble-chart.txt`
 
-puts `ruby folded-pages.rb > #{try}/Processed/trouble-pages.txt`
-puts "trouble-pages.txt: " + `tail -1 #{try}/Processed/trouble-pages.txt`
+puts "skipping folded-pages.rb"
+# puts `ruby folded-pages.rb > #{try}/Processed/trouble-pages.txt`
+# puts "trouble-pages.txt: " + `tail -1 #{try}/Processed/trouble-pages.txt`
 
 puts `cp -R #{try}/Processed/ ~/Smallest-Federated-Wiki/client/chart`
 
