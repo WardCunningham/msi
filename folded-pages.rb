@@ -34,12 +34,14 @@ end
 # Fabric
 # Fabric Add on
 
+@formulas = {}
 def convert! name, table
   ['Formula'].each do |sufix|
     targets = {}
     columns = table['columns']
     columns.each do |col|
       if col =~ /(.+?)( |_)#{sufix}$/
+        @formulas["#{name}['#{$1}']"] = false
         candidates = columns.select {|e| e==$1}
         if candidates.length == 1
           targets[col] = candidates.first
@@ -56,6 +58,11 @@ def convert! name, table
     end
     table['columns'] = table['columns'] - targets.keys
   end
+end
+
+def fetch table, row, column
+  @formulas["#{table}['#{column}']"] = true
+  row[column].my_value
 end
 
 def index key, table
@@ -1017,4 +1024,5 @@ list_all_materials
 describe_each_material
 describe_source_tables
 
+puts "\nUnchecked Formulas:\n", @formulas.keys.sort.join("\n")
 puts "\n#{@trouble} trouble"
